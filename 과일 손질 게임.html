@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>과일 연결 리스트 게임</title>
+    <style>
+        body {
+            margin: 0;
+            background: #2c3e50;
+            color: white;
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        #game-container {
+            position: relative;
+            width: 800px;
+            height: 500px;
+            background: #34495e;
+            border: 5px solid #ecf0f1;
+            margin-top: 20px;
+            overflow: hidden;
+        }
+        .fruit {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 30px;
+            cursor: pointer;
+            transition: transform 0.2s;
+            user-select: none;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+        .fruit:hover { transform: scale(1.1); }
+        .line {
+            position: absolute;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.3);
+            transform-origin: 0 0;
+            pointer-events: none;
+        }
+        #ui { margin-top: 10px; text-align: center; }
+        .target { color: #f1c40f; font-weight: bold; font-size: 24px; }
+    </style>
+</head>
+<body>
+
+    <div id="ui">
+        <h1>Fruit Linked List</h1>
+        <p>연결된 과일을 순서대로 클릭하여 손질하세요!</p>
+        <div class="target">현재 목표: <span id="next-fruit">-</span></div>
+        <div>남은 과일: <span id="score">0</span></div>
+    </div>
+
+    <div id="game-container" id="container"></div>
+
+    <script>
+        const fruitsData = [
+            { name: '사과', icon: '🍎' },
+            { name: '포도', icon: '🍇' },
+            { name: '오렌지', icon: '🍊' },
+            { name: '레몬', icon: '🍋' },
+            { name: '바나나', icon: '🍌' }
+        ];
+
+        class Node {
+            constructor(data, x, y) {
+                this.data = data;
+                this.x = x;
+                this.y = y;
+                this.next = null;
+                this.element = this.createVisual();
+            }
+
+            createVisual() {
+                const el = document.createElement('div');
+                el.className = 'fruit';
+                el.innerHTML = this.data.icon;
+                el.style.left = this.x + 'px';
+                el.style.top = this.y + 'px';
+                el.style.backgroundColor = this.getRandomColor();
+                return el;
+            }
+
+            getRandomColor() {
+                const colors = ['#e74c3c', '#9b59b6', '#f39c12', '#f1c40f', '#2ecc71'];
+                return colors[Math.floor(Math.random() * colors.length)];
+            }
+        }
+
+        class LinkedListGame {
+            constructor() {
+                this.head = null;
+                this.container = document.getElementById('game-container');
+                this.lines = [];
+                this.count = 0;
+                this.init();
+            }
+
+            init() {
+                this.container.innerHTML = '';
+                this.head = null;
+                this.count = 5; // 5개의 과일 생성
+                
+                let prevNode = null;
+
+                for (let i = 0; i < this.count; i++) {
+                    const randomFruit = fruitsData[Math.floor(Math.random() * fruitsData.length)];
+                    const x = Math.random() * (700) + 50;
+                    const y = Math.random() * (400) + 50;
+                    const newNode = new Node(randomFruit, x, y);
+
+                    if (!this.head) {
+                        this.head = newNode;
+                    } else {
+                        prevNode.next = newNode;
+                    }
+                    prevNode = newNode;
+                    
+                    newNode.element.onclick = () => this.sliceFruit(newNode);
+                    this.container.appendChild(newNode.element);
+                }
+                this.updateUI();
+                this.drawLines();
+            }
+
+            drawLines() {
+                // 기존 선 제거
+                this.lines.forEach(line => line.remove());
+                this.lines = [];
+
+                let current = this.head;
+                while (current && current.next) {
+                    const line = document.createElement('div');
+                    line.className = 'line';
+                    
+                    const x1 = current.x + 30;
+                    const y1 = current.y + 30;
+                    const x2 = current.next.x + 30;
+                    const y2 = current.next.y + 30;
+
+                    const dist = Math.sqrt((x2-x1)**2 + (y2-y1)**2);
+                    const angle = Math.atan2(y2-y1, x2-x1) * 180 / Math.PI;
+
+                    line.style.width = dist + 'px';
+                    line.style.left = x1 + 'px';
+                    line.style.top = y1 + 'px';
+                    line.style.transform = `rotate(${angle}deg)`;
+                    
+                    this.container.appendChild(line);
+                    this.lines.push(line);
+                    current = current.next;
+                }
+            }
+
+            sliceFruit(node) {
+                if (node === this.head) {
+                    // Head 노드(첫 번째 과일)를 클릭했을 때만 삭제 성공
+                    this.container.removeChild(node.element);
+                    this.head = this.head.next;
+                    this.count--;
+                    
+                    if (this.count === 0) {
+                        alert("모두 손질했습니다! 다음 라운드 시작.");
+                        this.init();
+                    } else {
+                        this.drawLines();
+                        this.updateUI();
+                    }
+                } else {
+                    alert("연결 리스트의 순서대로 손질해야 합니다! (첫 번째 과일부터)");
+                }
+            }
+
+            updateUI() {
+                document.getElementById('score').innerText = this.count;
+                document.getElementById('next-fruit').innerText = this.head ? this.head.data.name : "없음";
+            }
+        }
+
+        const game = new LinkedListGame();
+    </script>
+</body>
+</html>
