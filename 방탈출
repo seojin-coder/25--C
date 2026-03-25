@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>K-POP 8-Rooms Escape</title>
+    <style>
+        :root { --neon: #00d2ff; --dark: #0a0a0c; --panel: #16161e; --accent: #ff007a; }
+        body { font-family: 'Pretendard', sans-serif; background: var(--dark); color: #fff; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .game-container { width: 500px; background: var(--panel); border-radius: 20px; padding: 30px; box-shadow: 0 20px 50px rgba(0,0,0,0.8); border: 1px solid #2a2a35; }
+        .progress-bar { display: flex; gap: 8px; margin-bottom: 25px; }
+        .step { flex: 1; height: 6px; background: #333; border-radius: 10px; transition: 0.4s; }
+        .step.active { background: var(--neon); box-shadow: 0 0 15px var(--neon); }
+        .hint-screen { background: #000; padding: 15px; border-radius: 10px; margin: 15px 0; border-left: 4px solid var(--accent); font-family: 'Courier New', monospace; line-height: 1.8; font-size: 0.9rem; color: #ccc; }
+        .stack-container { border: 2px solid #2a2a35; border-radius: 12px; min-height: 100px; margin-bottom: 20px; display: flex; flex-direction: column-reverse; padding: 12px; gap: 8px; background: rgba(0,0,0,0.2); }
+        .stack-block { background: linear-gradient(90deg, var(--neon), #3a86ff); color: #000; font-weight: bold; padding: 10px; border-radius: 6px; text-align: center; animation: pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        input { width: 100%; box-sizing: border-box; padding: 15px; border-radius: 10px; border: 1px solid #333; background: #23232e; color: #fff; font-size: 1rem; margin-bottom: 12px; transition: 0.3s; }
+        input:focus { border-color: var(--neon); outline: none; box-shadow: 0 0 10px rgba(0,210,255,0.3); }
+        button { width: 100%; padding: 15px; border: none; border-radius: 10px; background: var(--neon); color: #000; font-weight: 800; cursor: pointer; font-size: 1.1rem; transition: 0.2s; }
+        button:active { transform: scale(0.98); }
+        .hidden { display: none; }
+        @keyframes pop { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    </style>
+</head>
+<body>
+
+<div class="game-container">
+    <div class="progress-bar" id="progress"></div>
+    
+    <div id="room-ui">
+        <h3 id="room-title" style="color: var(--accent); margin:0; letter-spacing: 2px;">SECURITY LEVEL 1</h3>
+        <h2 id="idol-target" style="margin: 10px 0;">그룹 분석 중...</h2>
+        <p style="font-size: 0.85rem; color: #888;">잘못된 가사를 입력하면 스택이 거부됩니다.</p>
+
+        <div class="hint-screen" id="hint-display"></div>
+        <div class="stack-container" id="stack-view"></div>
+
+        <input type="text" id="input-field" placeholder="올바른 가사 조각을 입력하세요..." autocomplete="off">
+        <button onclick="handleInput()">데이터 전송 (PUSH)</button>
+    </div>
+
+    <div id="clear-ui" class="hidden" style="text-align: center; padding: 40px 0;">
+        <h1 style="font-size: 4rem; margin: 0;">🔓</h1>
+        <h2 style="color: var(--neon);">SYSTEM UNLOCKED</h2>
+        <p>다음 구역의 보안 코드를 해독하십시오.</p>
+        <button onclick="startNextRoom()">다음 단계 진입</button>
+    </div>
+</div>
+
+<script>
+    const rooms = [
+        { idol: "에스파 (aespa)", hints: ["Su-su-su-Supernova", "사건은 다가와 ah oh ay", "Next Level", "I'm a Whiplash"], answer: ["su-su-su-supernova", "i'm a whiplash"] },
+        { idol: "뉴진스 (NewJeans)", hints: ["How Sweet", "Ditto", "I was waiting for you", "Stay in the middle"], answer: ["how sweet", "stay in the middle"] },
+        { idol: "아이브 (IVE)", hints: ["Accendio", "Love Dive", "나르시시틱 my god I love it", "숨 참고 love dive"], answer: ["accendio", "숨 참고 love dive"] },
+        { idol: "르세라핌 (LE SSERAFIM)", hints: ["CRAZY", "Make it look easy", "All the girls are girly girlys", "Antifragile"], answer: ["crazy", "all the girls are girly girlys"] },
+        { idol: "아일릿 (ILLIT)", hints: ["Cherish (My Love)", "Magnetic", "You you you you like it", "너를 향한 마음이 치익치익"], answer: ["cherish (my love)", "너를 향한 마음이 치익치익"] },
+        { idol: "베이비몬스터 (BABYMONSTER)", hints: ["DRIP", "Sheesh", "Got them all going sheesh", "I'm a monster monster"], answer: ["drip", "got them all going sheesh"] },
+        { idol: "키스오브라이프 (KISS OF LIFE)", hints: ["Sticky", "느낌 있게 sticky", "Get Loud", "너의 본능을 깨워"], answer: ["get loud", "너의 본능을 깨워"] },
+        { idol: "엔믹스 (NMIXX)", hints: ["별별별", "DICE", "See that? 넘어가버렸네", "Love Is Lonely"], answer: ["별별별", "see that? 넘어가버렸네"] }
+    ];
+
+    let currentRoom = 0;
+    let stack = [];
+
+    function init() {
+        const prog = document.getElementById('progress');
+        prog.innerHTML = '';
+        for(let i=0; i<8; i++) {
+            const d = document.createElement('div');
+            d.className = `step ${i <= currentRoom ? 'active' : ''}`;
+            prog.appendChild(d);
+        }
+        
+        const data = rooms[currentRoom];
+        document.getElementById('room-title').innerText = `SECURITY LEVEL ${currentRoom + 1}`;
+        document.getElementById('idol-target').innerText = data.idol;
+        document.getElementById('hint-display').innerHTML = data.hints.map(h => `CODE: ${h}`).join('<br>');
+        document.getElementById('stack-view').innerHTML = '';
+        stack = [];
+        
+        document.getElementById('room-ui').classList.remove('hidden');
+        document.getElementById('clear-ui').classList.add('hidden');
+    }
+
+    function handleInput() {
+        const input = document.getElementById('input-field');
+        const val = input.value.trim().toLowerCase();
+        const target = rooms[currentRoom];
+
+        if (val === target.answer[stack.length].toLowerCase()) {
+            stack.push(val);
+            renderStack();
+            input.value = '';
+            if (stack.length === target.answer.length) {
+                setTimeout(showClear, 400);
+            }
+        } else {
+            input.style.borderColor = "#ff007a";
+            input.style.boxShadow = "0 0 15px #ff007a";
+            setTimeout(() => {
+                input.style.borderColor = "#333";
+                input.style.boxShadow = "none";
+            }, 600);
+            input.value = '';
+        }
+    }
+
+    function renderStack() {
+        const view = document.getElementById('stack-view');
+        view.innerHTML = '';
+        stack.forEach(text => {
+            const block = document.createElement('div');
+            block.className = 'stack-block';
+            block.innerText = "LOADED: " + text.toUpperCase();
+            view.appendChild(block);
+        });
+    }
+
+    function showClear() {
+        document.getElementById('room-ui').classList.add('hidden');
+        document.getElementById('clear-ui').classList.remove('hidden');
+    }
+
+    function startNextRoom() {
+        currentRoom++;
+        if (currentRoom < 8) {
+            init();
+        } else {
+            alert("🎊 MISSION COMPLETE! 당신은 진정한 K-POP 요원입니다.");
+            currentRoom = 0;
+            init();
+        }
+    }
+
+    document.getElementById('input-field').addEventListener('keypress', (e) => {
+        if(e.key === 'Enter') handleInput();
+    });
+
+    init();
+</script>
+
+</body>
+</html>
