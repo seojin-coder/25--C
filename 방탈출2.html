@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>K-POP Lyric Stack Escape</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --card: #1e293b;
+            --accent: #38bdf8;
+            --success: #22c55e;
+            --gold: #fbbf24;
+            --error: #ef4444;
+            --text: #f1f5f9;
+        }
+
+        body {
+            font-family: 'Pretendard', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 700px;
+            background: var(--card);
+            padding: 40px;
+            border-radius: 24px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            border: 1px solid #334155;
+            text-align: center;
+        }
+
+        .stage-indicator {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 30px;
+        }
+
+        .dot {
+            width: 35px;
+            height: 35px;
+            border-radius: 8px;
+            background: #334155;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            font-weight: bold;
+            color: #64748b;
+            transition: 0.3s;
+        }
+
+        .dot.active { background: var(--accent); color: white; box-shadow: 0 0 15px var(--accent); }
+        .dot.cleared { background: var(--success); color: white; }
+
+        h2 { font-size: 2rem; margin: 10px 0; color: var(--accent); }
+        .instruction { color: #94a3b8; font-size: 0.9rem; margin-bottom: 30px; }
+
+        /* 가사가 들어갈 스택 슬롯 */
+        .slot-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 40px;
+        }
+
+        .slot {
+            height: 50px;
+            background: rgba(15, 23, 42, 0.5);
+            border: 2px dashed #475569;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #475569;
+            font-weight: 500;
+            transition: 0.2s;
+        }
+
+        .slot.active-slot { border-color: var(--gold); background: rgba(251, 191, 36, 0.05); color: var(--gold); }
+        .slot.filled { border-style: solid; border-color: var(--success); color: white; background: rgba(34, 197, 94, 0.1); }
+
+        /* 무작위 가사 창고 */
+        .warehouse {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            padding: 20px;
+            background: #0f172a;
+            border-radius: 16px;
+            min-height: 100px;
+        }
+
+        .lyric-item {
+            background: #334155;
+            padding: 10px 16px;
+            border-radius: 8px;
+            cursor: grab;
+            font-size: 0.9rem;
+            border: 1px solid transparent;
+            transition: 0.2s;
+            user-select: none;
+        }
+
+        .lyric-item:hover { background: #475569; border-color: var(--accent); }
+        .lyric-item:active { cursor: grabbing; }
+
+        .hint-btn {
+            margin-top: 30px;
+            background: transparent;
+            border: 1px solid #475569;
+            color: #94a3b8;
+            padding: 8px 18px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+
+        .hint-btn:hover { color: var(--gold); border-color: var(--gold); }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="stage-indicator" id="stage-dots"></div>
+    
+    <h2 id="idol-title">IDOL NAME</h2>
+    <p class="instruction">이 노래의 가사 순서대로(1 ➔ 2 ➔ 3) 조각을 드래그하여 채우세요.</p>
+    
+    <div class="slot-container" id="slots"></div>
+    
+    <div class="warehouse" id="warehouse" ondragover="return false" ondrop="handleBackToWarehouse(event)">
+        </div>
+
+    <button class="hint-btn" onclick="showHint()">HINT: 곡 제목 확인</button>
+</div>
+
+<script>
+    const gameData = [
+        { idol: "에스파(aespa)", song: "Supernova", answer: ["Su-su-su-Supernova", "사건은 다가와 ah oh ay", "Nova can't stop hyperstellar"], wrong: ["Next Level", "I'm a Whiplash"] },
+        { idol: "뉴진스(NewJeans)", song: "How Sweet", answer: ["How sweet tastes like vanilla", "정말 Sweet하게 느껴져", "Stay in the middle"], wrong: ["Hype boy", "Ditto"] },
+        { idol: "아이브(IVE)", song: "Love Dive", answer: ["나르시시틱 My God I love it", "서로를 비춘 밤", "숨 참고 Love dive"], wrong: ["Kitsch", "After LIKE"] },
+        { idol: "르세라핌(LE SSERAFIM)", song: "CRAZY", answer: ["Act like a angel", "Dress like crazy", "All the girls are girly girlys"], wrong: ["EASY", "Smart"] },
+        { idol: "아일릿(ILLIT)", song: "Magnetic", answer: ["Baby I'm just magnetic", "You you you you like it", "너를 향한 마음이 치익치익"], wrong: ["Cherish", "Lucky Girl"] },
+        { idol: "베이비몬스터", song: "SHEESH", answer: ["Got them all going SHEESH", "B-A-B-Y-M-O-N", "온 세상을 다 놀래킬 거야"], wrong: ["BATTER UP", "DRIP"] },
+        { idol: "키스오브라이프", song: "Sticky", answer: ["느낌 있게 Sticky", "더 뜨겁게 말이야", "Can't stop the feeling"], wrong: ["Get Loud", "Midas Touch"] },
+        { idol: "엔믹스(NMIXX)", song: "별별별 (See that?)", answer: ["See that? 넘어가버렸네", "우린 저 별별별", "별의별 일이 다 생겨"], wrong: ["DASH", "DICE"] }
+    ];
+
+    let currentStage = 0;
+    let filledIndex = 0; // 현재 채워야 할 슬롯 번호
+
+    function init() {
+        renderDots();
+        loadStage();
+    }
+
+    function renderDots() {
+        const dotsContainer = document.getElementById('stage-dots');
+        dotsContainer.innerHTML = '';
+        gameData.forEach((_, i) => {
+            const dot = document.createElement('div');
+            dot.className = `dot ${i === currentStage ? 'active' : ''} ${i < currentStage ? 'cleared' : ''}`;
+            dot.innerText = i + 1;
+            dotsContainer.appendChild(dot);
+        });
+    }
+
+    function loadStage() {
+        const stage = gameData[currentStage];
+        document.getElementById('idol-title').innerText = stage.idol;
+        filledIndex = 0;
+
+        // 슬롯(빈칸) 생성
+        const slotContainer = document.getElementById('slots');
+        slotContainer.innerHTML = '';
+        stage.answer.forEach((text, i) => {
+            const slot = document.createElement('div');
+            slot.className = `slot ${i === 0 ? 'active-slot' : ''}`;
+            slot.innerText = `가사 순서 ${i + 1}`;
+            slot.dataset.correct = text;
+            slot.dataset.index = i;
+            slot.ondragover = e => e.preventDefault();
+            slot.ondrop = handleDrop;
+            slotContainer.appendChild(slot);
+        });
+
+        // 가사 조각 생성 (정답 + 오답 섞기)
+        const warehouse = document.getElementById('warehouse');
+        warehouse.innerHTML = '';
+        const allLyrics = [...stage.answer, ...stage.wrong].sort(() => Math.random() - 0.5);
+        
+        allLyrics.forEach((txt, i) => {
+            const item = document.createElement('div');
+            item.className = 'lyric-item';
+            item.innerText = txt;
+            item.draggable = true;
+            item.id = `lyric-${i}`;
+            item.ondragstart = e => {
+                e.dataTransfer.setData("text", e.target.id);
+                e.dataTransfer.setData("val", txt);
+            };
+            warehouse.appendChild(item);
+        });
+    }
+
+    function handleDrop(e) {
+        e.preventDefault();
+        const val = e.dataTransfer.getData("val");
+        const id = e.dataTransfer.getData("text");
+        const slotIdx = parseInt(this.dataset.index);
+        const correctVal = this.dataset.correct;
+
+        // 1. 순서 체크 (이전 칸이 비어있으면 안 됨)
+        if (slotIdx !== filledIndex) {
+            alert("가사 순서가 맞지 않습니다! 앞의 칸부터 채워주세요.");
+            return;
+        }
+
+        // 2. 내용 체크
+        if (val === correctVal) {
+            this.innerText = val;
+            this.classList.remove('active-slot');
+            this.classList.add('filled');
+            document.getElementById(id).style.display = 'none';
+            filledIndex++;
+
+            // 다음 슬롯 활성화 시각화
+            const nextSlot = document.querySelectorAll('.slot')[filledIndex];
+            if (nextSlot) nextSlot.classList.add('active-slot');
+
+            // 스테이지 클리어 체크
+            if (filledIndex === gameData[currentStage].answer.length) {
+                setTimeout(nextStage, 600);
+            }
+        } else {
+            alert("❌ 이 그룹의 정답 가사가 아닙니다!");
+        }
+    }
+
+    function nextStage() {
+        if (currentStage < 7) {
+            alert(`🔓 STAGE ${currentStage + 1} 통과!`);
+            currentStage++;
+            init();
+        } else {
+            alert("🏆 대단합니다! 모든 K-POP 가사 보안을 해제하고 탈출에 성공했습니다!");
+            location.reload();
+        }
+    }
+
+    function showHint() {
+        alert(`🎵 현재 스테이지 정답 곡명: [ ${gameData[currentStage].song} ]`);
+    }
+
+    init();
+</script>
+</body>
+</html>
