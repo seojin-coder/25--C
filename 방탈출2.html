@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>K-POP 8-Doors Escape</title>
+    <style>
+        :root { --door-gold: #d4af37; --bg-dark: #1a1a2e; }
+        body { font-family: 'Pretendard', sans-serif; background: var(--bg-dark); color: white; margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+        
+        /* 문이 배치되는 복도 */
+        .hallway { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; padding: 40px; max-width: 900px; }
+        .door-container { text-align: center; }
+        .door { width: 120px; height: 180px; background: #4e342e; border: 4px solid #3e2723; border-radius: 10px 10px 0 0; cursor: pointer; position: relative; transition: 0.3s; display: flex; justify-content: center; align-items: center; font-size: 2rem; box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
+        .door:hover { transform: scale(1.05); border-color: var(--door-gold); }
+        .door.open { background: #1a1a2e; border-color: #00ff88; cursor: default; }
+        .door.open::after { content: "🔓"; }
+        .door.locked::after { content: "🔒"; }
+        .door-label { margin-top: 10px; font-weight: bold; color: #aaa; }
+
+        /* 문제 팝업 모달 */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 100; justify-content: center; align-items: center; }
+        .modal-content { background: #252535; padding: 30px; border-radius: 20px; width: 500px; text-align: center; border: 2px solid var(--door-gold); }
+        
+        /* 가사 조각 스택 스타일 */
+        .word-pool { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 20px 0; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 10px; }
+        .word-chip { background: #444; padding: 10px 15px; border-radius: 20px; cursor: pointer; transition: 0.2s; font-size: 0.9rem; }
+        .word-chip:hover { background: var(--door-gold); color: black; }
+        
+        .answer-stack { min-height: 120px; border: 2px dashed #666; margin: 20px 0; display: flex; flex-direction: column-reverse; align-items: center; gap: 5px; padding: 10px; }
+        .stack-item { background: #00d2ff; color: black; padding: 8px 20px; border-radius: 5px; width: 80%; font-weight: bold; animation: popIn 0.3s; }
+
+        .btn-group { display: flex; gap: 10px; justify-content: center; }
+        .btn { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        .btn-reset { background: #ff4757; color: white; }
+        .btn-close { background: #555; color: white; }
+
+        @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <h1 style="margin-top: 40px; color: var(--door-gold);">🏰 K-POP STACK CASTLE</h1>
+    <p>8개의 문을 차례대로 열고 탈출하세요!</p>
+
+    <div class="hallway" id="door-grid">
+        </div>
+
+    <div class="modal" id="quiz-modal">
+        <div class="modal-content">
+            <h2 id="modal-title" style="color: var(--door-gold);">ROOM 1</h2>
+            <p id="modal-desc">가사를 순서대로 클릭하여 스택을 쌓으세요!</p>
+            
+            <div class="answer-stack" id="answer-stack">
+                </div>
+
+            <div class="word-pool" id="word-pool">
+                </div>
+
+            <div class="btn-group">
+                <button class="btn btn-reset" onclick="resetStack()">다시 쌓기</button>
+                <button class="btn btn-close" onclick="closeModal()">닫기</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+    const rooms = [
+        { idol: "에스파", full: ["Su-su-su-Supernova", "사건은 다가와", "ah oh ay"], pool: ["Next Level", "Su-su-su-Supernova", "사건은 다가와", "ah oh ay", "Whiplash"] },
+        { idol: "뉴진스", full: ["How Sweet", "내가 기다린", "Stay in the middle"], pool: ["Ditto", "How Sweet", "내가 기다린", "Stay in the middle", "Hype Boy"] },
+        { idol: "아이브", full: ["나르시시틱", "My God I Love It", "숨 참고 Love Dive"], pool: ["나르시시틱", "My God I Love It", "숨 참고 Love Dive", "Kitsch", "After LIKE"] },
+        { idol: "르세라핌", full: ["CRAZY", "All the girls", "are girly girlys"], pool: ["CRAZY", "All the girls", "are girly girlys", "EASY", "Smart"] },
+        { idol: "아일릿", hints: "Magnetic", full: ["You you you", "you like it", "Magnetic"], pool: ["You you you", "you like it", "Magnetic", "Lucky Girl", "치익치익"] },
+        { idol: "베몬", full: ["Sheesh", "Got them all", "going sheesh"], pool: ["Sheesh", "Got them all", "going sheesh", "Batter Up", "DRIP"] },
+        { idol: "키오라", full: ["느낌 있게", "Sticky", "Sticky"], pool: ["느낌 있게", "Sticky", "Sugarcoat", "Get Loud"] },
+        { idol: "엔믹스", full: ["See that?", "넘어가버렸네", "별별별"], pool: ["DICE", "See that?", "넘어가버렸네", "별별별", "DASH"] }
+    ];
+
+    let currentRoomIdx = 0;
+    let userStack = [];
+    let unlockedRooms = 0;
+
+    // 복도에 문 생성
+    function createDoors() {
+        const grid = document.getElementById('door-grid');
+        for (let i = 0; i < 8; i++) {
+            const container = document.createElement('div');
+            container.className = 'door-container';
+            const door = document.createElement('div');
+            door.className = 'door locked';
+            door.id = `door-${i}`;
+            door.onclick = () => openQuiz(i);
+            
+            const label = document.createElement('div');
+            label.className = 'door-label';
+            label.innerText = `ROOM ${i+1}`;
+            
+            container.appendChild(door);
+            container.appendChild(label);
+            grid.appendChild(container);
+        }
+    }
+
+    function openQuiz(idx) {
+        if (idx > unlockedRooms) {
+            alert("이전 방을 먼저 탈출해야 합니다!");
+            return;
+        }
+        if (idx < unlockedRooms) {
+            alert("이미 탈출한 방입니다.");
+            return;
+        }
+        
+        currentRoomIdx = idx;
+        userStack = [];
+        const room = rooms[idx];
+        
+        document.getElementById('modal-title').innerText = `${idx + 1}번 문: ${room.idol}`;
+        document.getElementById('quiz-modal').style.display = 'flex';
+        
+        renderPool(room.pool);
+        renderStack();
+    }
+
+    function renderPool(words) {
+        const poolEl = document.getElementById('word-pool');
+        poolEl.innerHTML = '';
+        // 무작위 섞기
+        const shuffled = [...words].sort(() => Math.random() - 0.5);
+        shuffled.forEach(word => {
+            const chip = document.createElement('div');
+            chip.className = 'word-chip';
+            chip.innerText = word;
+            chip.onclick = () => pushWord(word);
+            poolEl.appendChild(chip);
+        });
+    }
+
+    function pushWord(word) {
+        const room = rooms[currentRoomIdx];
+        // 스택의 다음 순서가 맞는지 확인
+        if (word === room.full[userStack.length]) {
+            userStack.push(word);
+            renderStack();
+            
+            // 전단계 완료 체크
+            if (userStack.length === room.full.length) {
+                setTimeout(() => {
+                    alert("🔓 정답입니다! 문이 열렸습니다.");
+                    closeModal();
+                    document.getElementById(`door-${currentRoomIdx}`).className = 'door open';
+                    unlockedRooms++;
+                    if(unlockedRooms === 8) alert("🎉 모든 문을 열고 캐슬을 탈출했습니다!");
+                }, 300);
+            }
+        } else {
+            alert("틀린 가사입니다! 처음부터 다시 쌓으세요.");
+            resetStack();
+        }
+    }
+
+    function renderStack() {
+        const stackEl = document.getElementById('answer-stack');
+        stackEl.innerHTML = '';
+        userStack.forEach(w => {
+            const item = document.createElement('div');
+            item.className = 'stack-item';
+            item.innerText = w;
+            stackEl.appendChild(item);
+        });
+    }
+
+    function resetStack() {
+        userStack = [];
+        renderStack();
+    }
+
+    function closeModal() {
+        document.getElementById('quiz-modal').style.display = 'none';
+    }
+
+    createDoors();
+</script>
+</body>
+</html>
