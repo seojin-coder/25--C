@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>K-POP Lyric Escape: Stage Mode</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+    <style>
+        :root { --gold: #ffd700; --dark: #0a0a12; --panel: #1e1e2e; --locked: #333; }
+        body { font-family: 'Pretendard', sans-serif; background: var(--dark); color: white; margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; overflow-x: hidden; }
+        
+        /* 헤더 및 진행도 */
+        .header { margin-top: 40px; text-align: center; }
+        .progress-container { margin-top: 10px; font-size: 1.2rem; color: var(--gold); font-weight: bold; }
+
+        /* 복도 레이아웃 */
+        .hallway { display: flex; gap: 30px; padding: 50px; overflow-x: auto; width: 90%; scroll-behavior: smooth; }
+        .door-box { min-width: 150px; text-align: center; opacity: 0.3; transition: 0.5s; filter: grayscale(1); }
+        .door-box.active { opacity: 1; filter: grayscale(0); }
+        
+        .door { width: 140px; height: 210px; background: #3d2b1f; border: 4px solid #2a1d15; border-radius: 10px 10px 0 0; cursor: not-allowed; position: relative; transition: 0.4s; }
+        .door-box.active .door { cursor: pointer; border-color: var(--gold); box-shadow: 0 0 15px rgba(255,215,0,0.2); }
+        .door-box.cleared .door { background: #1a1a2e; border-color: #00ff88; }
+        
+        .door::after { content: "🔒"; position: absolute; top: 45%; left: 40%; font-size: 1.5rem; }
+        .door-box.active .door::after { content: "🔓"; }
+        .door-box.cleared .door::after { content: "✅"; }
+        
+        .door-num { margin-top: 15px; color: #888; font-weight: 800; font-size: 1.1rem; }
+        .door-box.active .door-num { color: var(--gold); }
+
+        /* 퀴즈 모달 */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 1000; justify-content: center; align-items: center; }
+        .modal-content { background: var(--panel); padding: 30px; border-radius: 20px; width: 450px; border: 2px solid var(--gold); text-align: center; position: relative; }
+        
+        .stack-area { background: rgba(0,0,0,0.4); border: 2px dashed #444; min-height: 200px; margin: 20px 0; border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+        .lyric-item { background: #34495e; color: white; padding: 12px; border-radius: 8px; cursor: move; font-weight: bold; border: 1px solid rgba(255,255,255,0.1); }
+        .lyric-item:hover { background: #2c3e50; }
+
+        .btn { padding: 12px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; margin: 5px; }
+        .btn-hint { background: #e67e22; color: white; }
+        .btn-check { background: #27ae60; color: white; width: 100%; margin-top: 10px; font-size: 1.1rem; }
+        
+        #hint-display { margin-top: 10px; color: var(--gold); font-size: 0.9rem; height: 20px; }
+        .success-msg { color: #00ff88; font-weight: bold; margin-top: 10px; display: none; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>🚪 STAGE BY STAGE: K-POP ESCAPE</h1>
+        <div class="progress-container">현재 단계: <span id="current-stage-text">1</span> / 8</div>
+    </div>
+
+    <div class="hallway" id="hallway">
+        </div>
+
+    <div class="modal" id="quiz-modal">
+        <div class="modal-content">
+            <h2 id="modal-title">STAGE 1</h2>
+            <p style="font-size: 0.9rem; color: #aaa;">가사 조각을 드래그하여 순서대로(위→아래) 배치하세요.</p>
+            <div id="hint-display"></div>
+            
+            <div class="stack-area" id="lyric-stack"></div>
+
+            <button class="btn btn-hint" onclick="toggleHint()">HINT (곡명 보기)</button>
+            <button class="btn btn-check" onclick="tryUnlock()">STAGE UNLOCK</button>
+            <button class="btn" style="background:#555; color:white;" onclick="closeModal()">이전으로</button>
+            <div id="success-msg" class="success-msg">🔓 해독 완료! 다음 문이 활성화되었습니다.</div>
+        </div>
+    </div>
+
+<script>
+    const stageData = [
+        { idol: "에스파(aespa)", song: "Supernova", answer: ["Su-su-su-Supernova", "사건은 다가와 ah oh ay", "Nova can't stop hyperstellar"], wrong: ["Next Level", "Whiplash"] },
+        { idol: "뉴진스(NewJeans)", song: "How Sweet", answer: ["How sweet tastes like vanilla", "정말 Sweet하게 느껴져", "Stay in the middle"], wrong: ["Hype boy", "Attention"] },
+        { idol: "아이브(IVE)", song: "Love Dive", answer: ["나르시시틱 My God I love it", "서로를 비춘 밤", "숨 참고 Love dive"], wrong: ["Kitsch", "After LIKE"] },
+        { idol: "르세라핌(LE SSERAFIM)", song: "CRAZY", answer: ["Act like a angel", "Dress like crazy", "All the girls are girly girlys"], wrong: ["EASY", "Smart"] },
+        { idol: "아일릿(ILLIT)", song: "Magnetic", answer: ["Baby I'm just magnetic", "You you you you like it", "너를 향한 마음이 치익치익"], wrong: ["Cherish", "Lucky Girl"] },
+        { idol: "베이비몬스터", song: "SHEESH", answer: ["Got them all going SHEESH", "B-A-B-Y-M-O-N", "온 세상을 다 놀래킬 거야"], wrong: ["BATTER UP", "DRIP"] },
+        { idol: "키스오브라이프", song: "Sticky", answer: ["느낌 있게 Sticky", "더 뜨겁게 말이야", "Can't stop the feeling"], wrong: ["Get Loud", "Midas Touch"] },
+        { idol: "엔믹스(NMIXX)", song: "별별별 (See that?)", answer: ["See that? 넘어가버렸네", "우린 저 별별별", "별의별 일이 다 생겨"], wrong: ["DASH", "DICE"] }
+    ];
+
+    let unlockedStage = 0; // 0부터 시작 (Stage 1)
+    let currentOpenIdx = -1;
+
+    function initHallway() {
+        const hallway = document.getElementById('hallway');
+        hallway.innerHTML = '';
+        stageData.forEach((data, i) => {
+            const doorBox = document.createElement('div');
+            doorBox.className = `door-box ${i === unlockedStage ? 'active' : ''} ${i < unlockedStage ? 'cleared active' : ''}`;
+            doorBox.id = `box-${i}`;
+            doorBox.innerHTML = `
+                <div class="door" onclick="enterStage(${i})"></div>
+                <div class="door-num">STAGE ${i+1}<br><span style="font-size:0.7rem">${i <= unlockedStage ? data.idol : '???'}</span></div>
+            `;
+            hallway.appendChild(doorBox);
+        });
+        document.getElementById('current-stage-text').innerText = unlockedStage + 1;
+    }
+
+    function enterStage(idx) {
+        if (idx > unlockedStage) return; // 잠긴 문 클릭 시 반응 없음
+        
+        currentOpenIdx = idx;
+        const data = stageData[idx];
+        document.getElementById('modal-title').innerText = `STAGE ${idx+1}: ${data.idol}`;
+        document.getElementById('hint-display').innerText = '';
+        document.getElementById('success-msg').style.display = 'none';
+        
+        const stackArea = document.getElementById('lyric-stack');
+        stackArea.innerHTML = '';
+        
+        // 정답 + 오답 섞기
+        const mixed = [...data.answer, ...data.wrong].sort(() => Math.random() - 0.5);
+        mixed.forEach(text => {
+            const div = document.createElement('div');
+            div.className = 'lyric-item';
+            div.innerText = text;
+            stackArea.appendChild(div);
+        });
+
+        document.getElementById('quiz-modal').style.display = 'flex';
+        
+        new Sortable(stackArea, { animation: 150 });
+    }
+
+    function toggleHint() {
+        document.getElementById('hint-display').innerText = `🎵 정답 곡 제목: [ ${stageData[currentOpenIdx].song} ]`;
+    }
+
+    function tryUnlock() {
+        const items = document.querySelectorAll('.lyric-item');
+        const userOrder = Array.from(items).map(el => el.innerText);
+        const correctOrder = stageData[currentOpenIdx].answer;
+
+        let correct = true;
+        for (let i = 0; i < correctOrder.length; i++) {
+            if (userOrder[i] !== correctOrder[i]) {
+                correct = false;
+                break;
+            }
+        }
+
+        if (correct) {
+            document.getElementById('success-msg').style.display = 'block';
+            setTimeout(() => {
+                if (unlockedStage === currentOpenIdx) {
+                    unlockedStage++;
+                }
+                closeModal();
+                initHallway();
+                if (unlockedStage === 8) alert("🎉 축하합니다! 모든 스테이지를 클리어하여 탈출에 성공했습니다!");
+            }, 1200);
+        } else {
+            alert("❌ 가사 순서가 틀렸거나 잘못된 가사가 포함되어 있습니다!");
+        }
+    }
+
+    function closeModal() {
+        document.getElementById('quiz-modal').style.display = 'none';
+    }
+
+    // 초기 실행
+    initHallway();
+</script>
+</body>
+</html>
