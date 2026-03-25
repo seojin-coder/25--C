@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>K-POP Double Stack Escape</title>
+    <style>
+        :root { --neon: #00ff88; --hint-color: #ff9f43; --dark: #0f172a; }
+        body { font-family: 'Pretendard', sans-serif; background: var(--dark); color: #fff; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .game-container { width: 600px; background: #1e293b; border-radius: 24px; padding: 30px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); border: 1px solid #334155; }
+        
+        /* 스택 레이아웃 */
+        .stacks-wrapper { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 20px 0; }
+        .stack-box { background: rgba(15, 23, 42, 0.6); border: 2px solid #334155; border-radius: 12px; height: 200px; display: flex; flex-direction: column-reverse; padding: 10px; gap: 5px; overflow-y: auto; }
+        .stack-label { font-size: 0.75rem; text-transform: uppercase; color: #94a3b8; margin-bottom: 5px; text-align: center; }
+        
+        /* 아이템 스타일 */
+        .item-hint { background: var(--hint-color); color: #000; font-size: 0.8rem; padding: 6px; border-radius: 4px; font-weight: bold; animation: slideIn 0.2s; }
+        .item-answer { background: var(--neon); color: #000; font-size: 0.8rem; padding: 6px; border-radius: 4px; font-weight: bold; animation: slideIn 0.2s; }
+        
+        .hint-viewer { background: #000; color: var(--hint-color); padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; min-height: 24px; border: 1px solid var(--hint-color); margin-bottom: 15px; }
+        
+        .controls { display: grid; grid-template-columns: 1fr 2fr; gap: 10px; }
+        input { padding: 12px; border-radius: 8px; border: none; background: #334155; color: white; }
+        button { padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .btn-pop { background: var(--hint-color); color: #000; }
+        .btn-push { background: var(--neon); color: #000; }
+        button:disabled { opacity: 0.3; cursor: not-allowed; }
+
+        .progress { display: flex; gap: 5px; margin-bottom: 20px; }
+        .dot { flex: 1; height: 4px; background: #334155; border-radius: 2px; }
+        .dot.on { background: var(--neon); box-shadow: 0 0 10px var(--neon); }
+        .hidden { display: none; }
+        @keyframes slideIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    </style>
+</head>
+<body>
+
+<div class="game-container">
+    <div class="progress" id="progress"></div>
+    
+    <div id="room-ui">
+        <h2 id="idol-target" style="margin: 0; color: var(--neon);">IDOL</h2>
+        <p style="font-size: 0.8rem; color: #94a3b8; margin: 5px 0 20px;">힌트 스택에서 데이터를 POP하여 정답 스택을 PUSH하세요.</p>
+
+        <div class="hint-viewer" id="current-hint">데이터를 수신하려면 [HINT POP] 클릭</div>
+
+        <div class="stacks-wrapper">
+            <div>
+                <div class="stack-label">Hint Stack (LIFO)</div>
+                <div class="stack-box" id="hint-stack-view"></div>
+            </div>
+            <div>
+                <div class="stack-label">Answer Stack</div>
+                <div class="stack-box" id="answer-stack-view"></div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn-pop" onclick="popHint()">HINT POP</button>
+            <div style="display:flex; gap:5px;">
+                <input type="text" id="input-field" placeholder="가사 입력..." style="flex:1">
+                <button class="btn-push" onclick="pushAnswer()">PUSH</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="clear-ui" class="hidden" style="text-align:center;">
+        <h1 style="color: var(--neon);">SYSTEM CLEAR</h1>
+        <p>다음 단계로 전송 중...</p>
+        <button class="btn-push" onclick="nextStage()" style="width: 200px;">NEXT ROOM</button>
+    </div>
+</div>
+
+<script>
+    const rooms = [
+        { idol: "에스파", hints: ["Next Level", "Whiplash", "사건은 다가와", "Supernova"], answer: ["supernova", "whiplash"] },
+        { idol: "뉴진스", hints: ["Ditto", "How Sweet", "OMG", "Stay in the middle"], answer: ["stay in the middle", "how sweet"] },
+        { idol: "아이브", hints: ["Kitsch", "Love Dive", "숨 참고 love dive", "Accendio"], answer: ["accendio", "숨 참고 love dive"] },
+        { idol: "르세라핌", hints: ["Smart", "Antifragile", "All the girls are girly girlys", "CRAZY"], answer: ["crazy", "all the girls are girly girlys"] },
+        { idol: "아일릿", hints: ["Magnetic", "치익치익", "Cherish", "Lucky Girl"], answer: ["cherish", "치익치익"] },
+        { idol: "베이비몬스터", hints: ["Batter Up", "Sheesh", "DRIP", "CLIK CLAK"], answer: ["clik clak", "drip"] },
+        { idol: "키스오브라이프", hints: ["Sticky", "Get Loud", "Midas Touch", "Sugarcoat"], answer: ["get loud", "sticky"] },
+        { idol: "엔믹스", hints: ["DASH", "See that?", "Love Is Lonely", "별별별"], answer: ["별별별", "see that?"] }
+    ];
+
+    let currentIdx = 0;
+    let hintStack = [];
+    let answerStack = [];
+
+    function initRoom() {
+        const data = rooms[currentIdx];
+        document.getElementById('idol-target').innerText = `ROOM ${currentIdx + 1}: ${data.idol}`;
+        document.getElementById('current-hint').innerText = "데이터를 수신하려면 [HINT POP] 클릭";
+        
+        // 힌트 스택 초기화 (무작위 섞기 대신 정해진 힌트를 스택에 Push)
+        hintStack = [...data.hints];
+        answerStack = [];
+        
+        renderHintStack();
+        renderAnswerStack();
+        updateProgress();
+        
+        document.getElementById('room-ui').classList.remove('hidden');
+        document.getElementById('clear-ui').classList.add('hidden');
+    }
+
+    function renderHintStack() {
+        const view = document.getElementById('hint-stack-view');
+        view.innerHTML = hintStack.map(() => `<div class="item-hint">ENCRYPTED DATA</div>`).join('');
+    }
+
+    function popHint() {
+        if (hintStack.length === 0) {
+            alert("더 이상 꺼낼 힌트가 없습니다!");
+            return;
+        }
+        const val = hintStack.pop();
+        document.getElementById('current-hint').innerText = `[POP 완료] : ${val}`;
+        renderHintStack();
+    }
+
+    function pushAnswer() {
+        const input = document.getElementById('input-field');
+        const val = input.value.trim().toLowerCase();
+        const target = rooms[currentIdx].answer;
+
+        if (val === target[answerStack.length].toLowerCase()) {
+            answerStack.push(val);
+            renderAnswerStack();
+            input.value = '';
+            if (answerStack.length === target.length) showClear();
+        } else {
+            input.style.boxShadow = "0 0 10px red";
+            setTimeout(() => input.style.boxShadow = "none", 500);
+        }
+    }
+
+    function renderAnswerStack() {
+        const view = document.getElementById('answer-stack-view');
+        view.innerHTML = answerStack.map(v => `<div class="item-answer">${v.toUpperCase()}</div>`).join('');
+    }
+
+    function updateProgress() {
+        const prog = document.getElementById('progress');
+        prog.innerHTML = '';
+        for(let i=0; i<8; i++) {
+            const d = document.createElement('div');
+            d.className = `dot ${i <= currentIdx ? 'on' : ''}`;
+            prog.appendChild(d);
+        }
+    }
+
+    function showClear() {
+        document.getElementById('room-ui').classList.add('hidden');
+        document.getElementById('clear-ui').classList.remove('hidden');
+    }
+
+    function nextStage() {
+        currentIdx++;
+        if (currentIdx < 8) initRoom();
+        else {
+            alert("CONGRATULATIONS! 모든 보안을 해제했습니다.");
+            currentIdx = 0;
+            initRoom();
+        }
+    }
+
+    initRoom();
+</script>
+
+</body>
+</html>
