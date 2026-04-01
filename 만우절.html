@@ -2,111 +2,121 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>⚠️ 시스템 무결성 검사 (v4.01)</title>
+    <title>큐 동기화 테스트 (v2.0)</title>
     <style>
-        @keyframes shake { 0% { transform: translate(1px, 1px) rotate(0deg); } 10% { transform: translate(-1px, -2px) rotate(-1deg); } 20% { transform: translate(-3px, 0px) rotate(1deg); } }
-        body { background: #000; color: #0f0; font-family: 'Courier New', monospace; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; overflow: hidden; }
-        #terminal { width: 500px; border: 1px solid #0f0; padding: 20px; box-shadow: 0 0 20px #0f0; position: relative; }
-        .glitch { animation: shake 0.5s infinite; color: #ff00ff; }
-        input { background: transparent; border: none; border-bottom: 1px solid #0f0; color: #0f0; width: 100%; outline: none; font-size: 1.2rem; margin-top: 15px; }
-        #q-display { font-size: 1.1rem; margin-bottom: 20px; min-height: 50px; }
-        .queue-container { margin-top: 30px; display: flex; gap: 10px; flex-wrap: wrap; }
-        .node { border: 1px solid #0f0; padding: 5px 10px; font-size: 0.8rem; opacity: 0.7; transition: all 0.3s; }
-        .node.front { background: #0f0; color: #000; opacity: 1; font-weight: bold; box-shadow: 0 0 10px #0f0; }
-        #log { font-size: 0.7rem; color: #0a0; height: 80px; overflow: hidden; margin-top: 10px; border-top: 1px solid #060; padding-top: 5px; }
+        body { background: #f8f9fa; font-family: 'Malgun Gothic', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        #game-box { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); width: 450px; text-align: center; }
+        .quiz-card { background: #e7f1ff; padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 2px dashed #4a90e2; }
+        #q-text { font-size: 1.2rem; font-weight: bold; color: #333; }
+        .options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
+        button { background: white; border: 2px solid #4a90e2; color: #4a90e2; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        button:hover { background: #4a90e2; color: white; }
+        
+        /* 큐 시각화 구역 */
+        #queue-container { margin-top: 30px; border-top: 2px solid #eee; padding-top: 20px; }
+        .queue-label { font-size: 0.8rem; color: #888; margin-bottom: 10px; }
+        #queue-list { display: flex; gap: 8px; justify-content: center; min-height: 40px; }
+        .node { padding: 8px 15px; background: #eee; border-radius: 5px; font-size: 0.8rem; border: 1px solid #ccc; animation: slideIn 0.3s ease; }
+        .node.front { background: #ff7675; color: white; border-color: #d63031; font-weight: bold; }
+        
+        #msg { margin-top: 15px; font-size: 0.9rem; font-weight: bold; height: 20px; }
+        @keyframes slideIn { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
     </style>
 </head>
 <body>
 
-<div id="terminal">
-    <div id="header">[SYSTEM CRITICAL ERROR: QUEUE_STUCK]</div>
-    <p style="font-size: 0.8rem;">로그아웃하려면 메모리 큐를 순차적으로 비우십시오.</p>
-    
-    <div id="q-display">질문 로딩 중...</div>
-    
-    <input type="text" id="user-in" placeholder="명령어 입력..." autofocus>
-    
-    <div class="queue-container" id="q-list"></div>
-    
-    <div id="log"></div>
+<div id="game-box">
+    <h2>🧩 시스템 큐 정합성 테스트</h2>
+    <p style="font-size: 0.8rem; color: #666;">정답을 클릭해 큐를 비우고 다음 단계로 넘어가세요.</p>
+
+    <div class="quiz-card">
+        <div id="q-text">질문 로딩 중...</div>
+    </div>
+
+    <div class="options" id="btn-group">
+        </div>
+
+    <div id="msg"></div>
+
+    <div id="queue-container">
+        <div class="queue-label">현재 처리 대기열 (QUEUE)</div>
+        <div id="queue-list"></div>
+    </div>
 </div>
 
 <script>
-    const questions = [
-        { q: "신데렐라가 잠을 못 자면?", a: "모짜렐라" },
-        { q: "세상에서 가장 야한 채소는?", a: "버섯" },
-        { q: "차가 울면?", a: "잉카" },
-        { q: "오리가 얼면?", a: "언덕" }
+    const data = [
+        { q: "세상에서 가장 가난한 왕은?", a: "최저임금", s: ["세종대왕", "최저임금", "사자왕", "거지왕"] },
+        { q: "우유가 아프면?", a: "앙팡", s: ["치즈", "앙팡", "저지방", "상했음"] },
+        { q: "소가 웃으면?", a: "우하하", s: ["음메", "폭소", "우하하", "미친소"] },
+        { q: "딸기가 직장을 잃으면?", a: "딸기시럽", s: ["백수", "딸기시럽", "잼", "산딸기"] }
     ];
 
-    let current = 0;
+    let step = 0;
     let queue = [];
-    let isCorrupted = false;
+    let isFirstClick = true;
 
-    const display = document.getElementById('q-display');
-    const input = document.getElementById('user-in');
-    const qList = document.getElementById('q-list');
-    const log = document.getElementById('log');
-
-    function printLog(msg) {
-        const p = document.createElement('div');
-        p.innerText = `> ${msg}`;
-        log.prepend(p);
-    }
-
-    function update() {
-        if (current < questions.length) {
-            display.innerText = `Q${current + 1}: ${questions[current].q}`;
-        } else {
-            display.innerText = "!! 모든 프로세스 종료 완료 !!";
+    function render() {
+        if(step < data.length) {
+            document.getElementById('q-text').innerText = `Q${step+1}. ${data[step].q}`;
+            const btnGroup = document.getElementById('btn-group');
+            btnGroup.innerHTML = '';
+            data[step].s.forEach(choice => {
+                const b = document.createElement('button');
+                b.innerText = choice;
+                b.onclick = () => handleInput(choice);
+                btnGroup.appendChild(b);
+            });
         }
 
+        const qList = document.getElementById('queue-list');
         qList.innerHTML = '';
         queue.forEach((v, i) => {
             const n = document.createElement('div');
             n.className = 'node' + (i === 0 ? ' front' : '');
-            // 킹받는 포인트: 큐에 들어간 글자를 무작위로 변형(글리치)
-            n.innerText = isCorrupted && i > 0 ? btoa(v).substring(0, 5) : v;
+            n.innerText = v;
             qList.appendChild(n);
         });
     }
 
-    input.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            const val = input.value.trim();
-            if (!val) return;
-            
-            queue.push(val);
-            input.value = '';
-            printLog(`데이터 '${val}'이(가) 메모리 번지 0x${Math.random().toString(16).slice(2,6)}에 할당됨.`);
-
-            // 1턴 지연 로직 + 킹받는 연출
-            if (queue.length === 1 && current === 0) {
-                printLog("경고: 큐 포인터 동기화 실패. 재시도 필요.");
-                document.getElementById('terminal').classList.add('glitch');
-                setTimeout(() => document.getElementById('terminal').classList.remove('glitch'), 500);
-            } else {
-                const front = queue[0];
-                if (front === questions[current].a) {
-                    queue.shift();
-                    current++;
-                    printLog(`정상 확인: 큐 헤드 제거 완료.`);
-                    isCorrupted = false;
-                } else {
-                    printLog(`오류: 헤드 데이터 '${front}'가 정답과 일치하지 않음.`);
-                    isCorrupted = true; // 틀리면 큐 내부가 외계어로 변함
-                }
-            }
-
-            if (current === questions.length) {
-                alert("해킹 성공! ...은 뻥이고 만우절 축하해! 🐟");
-                location.reload();
-            }
-            update();
+    function handleInput(choice) {
+        const msg = document.getElementById('msg');
+        
+        // 1. 선택한 값을 큐에 추가
+        queue.push(choice);
+        
+        // 2. 만우절 킹받는 로직: 첫 클릭은 무조건 대기열에만 넣음
+        if(isFirstClick) {
+            msg.innerText = "데이터가 큐에 성공적으로 삽입되었습니다.";
+            msg.style.color = "#4a90e2";
+            isFirstClick = false;
+            render();
+            return;
         }
-    });
 
-    update();
+        // 3. 큐의 맨 앞(Front) 값과 정답 비교
+        const front = queue[0];
+        if(front === data[step].a) {
+            queue.shift(); // 정답이면 큐에서 제거
+            step++;
+            msg.innerText = "성공! 다음 프로세스로 진행합니다.";
+            msg.style.color = "#2ecc71";
+            
+            if(step === data.length && queue.length === 0) {
+                setTimeout(() => {
+                    alert("답답하지 메롱 만우절 장난이지롱! 🐟");
+                    location.reload();
+                }, 500);
+            }
+        } else {
+            msg.innerText = `검증 오류! 큐 Front의 '${front}'는 오답입니다.`;
+            msg.style.color = "#ff7675";
+        }
+        render();
+    }
+
+    render();
 </script>
+
 </body>
 </html>
