@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>⚠️ 시스템 무결성 검사 (v4.01)</title>
+    <style>
+        @keyframes shake { 0% { transform: translate(1px, 1px) rotate(0deg); } 10% { transform: translate(-1px, -2px) rotate(-1deg); } 20% { transform: translate(-3px, 0px) rotate(1deg); } }
+        body { background: #000; color: #0f0; font-family: 'Courier New', monospace; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; overflow: hidden; }
+        #terminal { width: 500px; border: 1px solid #0f0; padding: 20px; box-shadow: 0 0 20px #0f0; position: relative; }
+        .glitch { animation: shake 0.5s infinite; color: #ff00ff; }
+        input { background: transparent; border: none; border-bottom: 1px solid #0f0; color: #0f0; width: 100%; outline: none; font-size: 1.2rem; margin-top: 15px; }
+        #q-display { font-size: 1.1rem; margin-bottom: 20px; min-height: 50px; }
+        .queue-container { margin-top: 30px; display: flex; gap: 10px; flex-wrap: wrap; }
+        .node { border: 1px solid #0f0; padding: 5px 10px; font-size: 0.8rem; opacity: 0.7; transition: all 0.3s; }
+        .node.front { background: #0f0; color: #000; opacity: 1; font-weight: bold; box-shadow: 0 0 10px #0f0; }
+        #log { font-size: 0.7rem; color: #0a0; height: 80px; overflow: hidden; margin-top: 10px; border-top: 1px solid #060; padding-top: 5px; }
+    </style>
+</head>
+<body>
+
+<div id="terminal">
+    <div id="header">[SYSTEM CRITICAL ERROR: QUEUE_STUCK]</div>
+    <p style="font-size: 0.8rem;">로그아웃하려면 메모리 큐를 순차적으로 비우십시오.</p>
+    
+    <div id="q-display">질문 로딩 중...</div>
+    
+    <input type="text" id="user-in" placeholder="명령어 입력..." autofocus>
+    
+    <div class="queue-container" id="q-list"></div>
+    
+    <div id="log"></div>
+</div>
+
+<script>
+    const questions = [
+        { q: "신데렐라가 잠을 못 자면?", a: "모짜렐라" },
+        { q: "세상에서 가장 야한 채소는?", a: "버섯" },
+        { q: "차가 울면?", a: "잉카" },
+        { q: "오리가 얼면?", a: "언덕" }
+    ];
+
+    let current = 0;
+    let queue = [];
+    let isCorrupted = false;
+
+    const display = document.getElementById('q-display');
+    const input = document.getElementById('user-in');
+    const qList = document.getElementById('q-list');
+    const log = document.getElementById('log');
+
+    function printLog(msg) {
+        const p = document.createElement('div');
+        p.innerText = `> ${msg}`;
+        log.prepend(p);
+    }
+
+    function update() {
+        if (current < questions.length) {
+            display.innerText = `Q${current + 1}: ${questions[current].q}`;
+        } else {
+            display.innerText = "!! 모든 프로세스 종료 완료 !!";
+        }
+
+        qList.innerHTML = '';
+        queue.forEach((v, i) => {
+            const n = document.createElement('div');
+            n.className = 'node' + (i === 0 ? ' front' : '');
+            // 킹받는 포인트: 큐에 들어간 글자를 무작위로 변형(글리치)
+            n.innerText = isCorrupted && i > 0 ? btoa(v).substring(0, 5) : v;
+            qList.appendChild(n);
+        });
+    }
+
+    input.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            const val = input.value.trim();
+            if (!val) return;
+            
+            queue.push(val);
+            input.value = '';
+            printLog(`데이터 '${val}'이(가) 메모리 번지 0x${Math.random().toString(16).slice(2,6)}에 할당됨.`);
+
+            // 1턴 지연 로직 + 킹받는 연출
+            if (queue.length === 1 && current === 0) {
+                printLog("경고: 큐 포인터 동기화 실패. 재시도 필요.");
+                document.getElementById('terminal').classList.add('glitch');
+                setTimeout(() => document.getElementById('terminal').classList.remove('glitch'), 500);
+            } else {
+                const front = queue[0];
+                if (front === questions[current].a) {
+                    queue.shift();
+                    current++;
+                    printLog(`정상 확인: 큐 헤드 제거 완료.`);
+                    isCorrupted = false;
+                } else {
+                    printLog(`오류: 헤드 데이터 '${front}'가 정답과 일치하지 않음.`);
+                    isCorrupted = true; // 틀리면 큐 내부가 외계어로 변함
+                }
+            }
+
+            if (current === questions.length) {
+                alert("해킹 성공! ...은 뻥이고 만우절 축하해! 🐟");
+                location.reload();
+            }
+            update();
+        }
+    });
+
+    update();
+</script>
+</body>
+</html>
