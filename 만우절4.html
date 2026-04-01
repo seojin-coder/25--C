@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>CRITICAL: SYSTEM_FAILURE_DETECTION</title>
+    <style>
+        body { background: #000; color: #ff0000; font-family: 'Courier New', Courier, monospace; height: 100vh; margin: 0; overflow: hidden; display: flex; justify-content: center; align-items: center; }
+        #monitor { width: 80%; border: 2px solid #ff0000; padding: 20px; background: rgba(20, 0, 0, 0.9); box-shadow: 0 0 30px #ff0000; text-align: center; z-index: 10; }
+        .glitch-text { font-size: 1.5rem; font-weight: bold; margin-bottom: 20px; animation: blink 0.1s infinite; }
+        
+        /* 큐 시각화 */
+        .queue-visual { display: flex; gap: 5px; justify-content: center; margin: 20px 0; border: 1px solid #550000; padding: 10px; height: 30px; }
+        .node { width: 20px; height: 20px; background: #ff0000; }
+
+        button { background: transparent; border: 2px solid #ff0000; color: #ff0000; padding: 15px 30px; font-size: 1.2rem; cursor: pointer; font-family: inherit; font-weight: bold; }
+        button:hover { background: #ff0000; color: #000; }
+
+        .ghost-text { position: absolute; font-size: 2rem; font-weight: bold; pointer-events: none; white-space: nowrap; }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0; } 100% { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+<div id="monitor">
+    <div class="glitch-text">⚠️ WARNING: QUEUE_OVERFLOW_DETECTED ⚠️</div>
+    <p>시스템 무결성이 파괴되었습니다. 아래 버튼을 눌러 메모리를 강제 플러시(Flush) 하십시오.</p>
+    
+    <div class="queue-visual" id="q-view">
+        </div>
+
+    <button onclick="triggerError()">MEMORY_FLUSH_START</button>
+    <p id="counter" style="margin-top:10px;">PENDING_TASKS: 0</p>
+</div>
+
+<script>
+    let errorQueue = [];
+    let isPranked = false;
+
+    function renderQueue() {
+        const view = document.getElementById('q-view');
+        view.innerHTML = '';
+        errorQueue.forEach(() => {
+            const div = document.createElement('div');
+            div.className = 'node';
+            view.appendChild(div);
+        });
+        document.getElementById('counter').innerText = `PENDING_TASKS: ${errorQueue.length}`;
+    }
+
+    function triggerError() {
+        // 1. 클릭할 때마다 큐에 '에러 태스크'를 넣음
+        errorQueue.push("ERROR");
+        renderQueue();
+
+        // 2. 큐의 선입선출(FIFO) 특성을 이용해 0.5초 뒤에 효과 발동
+        setTimeout(() => {
+            const task = errorQueue.shift();
+            if (task) {
+                createGlitchEffect();
+                renderQueue();
+            }
+        }, 500);
+
+        // 3. 10번 넘게 클릭하면 화면이 미쳐 날뜀
+        if (errorQueue.length > 8 && !isPranked) {
+            startFinalChaos();
+        }
+    }
+
+    function createGlitchEffect() {
+        const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff'];
+        const texts = ['FATAL_ERROR', 'MEMORY_LEAK', 'C_POINTER_NULL', 'ACCESS_DENIED', 'STACK_OVERFLOW'];
+        
+        const div = document.createElement('div');
+        div.className = 'ghost-text';
+        div.innerText = texts[Math.floor(Math.random() * texts.length)];
+        div.style.left = Math.random() * 80 + '%';
+        div.style.top = Math.random() * 80 + '%';
+        div.style.color = colors[Math.floor(Math.random() * colors.length)];
+        div.style.transform = `rotate(${Math.random() * 360}deg)`;
+        
+        document.body.appendChild(div);
+        
+        // 2초 뒤 삭제
+        setTimeout(() => div.remove(), 2000);
+    }
+
+    function startFinalChaos() {
+        isPranked = true;
+        document.body.style.backgroundColor = 'white';
+        
+        // 0.1초마다 배경색 반전 (광란의 연출)
+        setInterval(() => {
+            document.body.style.filter = document.body.style.filter === 'invert(1)' ? 'invert(0)' : 'invert(1)';
+        }, 100);
+
+        setTimeout(() => {
+            alert("🐟 만우절 축하드립니다, 교수님!\n\n이 시스템은 사실 제 마음대로 터지는 '장난 큐'였습니다.\n깜짝 놀라셨죠? 오늘 하루도 즐겁게 보내세요! \n- 첨지(seojin-coder) 올림 -");
+            location.reload();
+        }, 3000);
+    }
+</script>
+</body>
+</html>
