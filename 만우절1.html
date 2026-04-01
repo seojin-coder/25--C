@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>큐(Queue) 동기화 오류 복구</title>
+    <style>
+        body { background: #f0f2f5; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        #box { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); width: 400px; text-align: center; }
+        .q-card { background: #fff4f4; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #ff7675; color: #d63031; font-weight: bold; }
+        .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        button { padding: 12px; border: 1px solid #ddd; border-radius: 8px; cursor: pointer; background: white; }
+        button:hover { background: #eee; }
+        #q-list { display: flex; gap: 5px; justify-content: center; margin-top: 20px; min-height: 40px; border-top: 1px solid #eee; padding-top: 15px; }
+        .node { padding: 5px 10px; background: #eee; border-radius: 4px; font-size: 0.8rem; border: 1px solid #ccc; }
+        .node.front { background: #ff7675; color: white; border-color: #d63031; animation: pulse 1s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+<div id="box">
+    <h3>⚠️ 큐 정체 현상 발생</h3>
+    <p style="font-size: 0.8rem; color: #888;">Front(빨간색)를 정답으로 밀어내어 큐를 비우세요.</p>
+    
+    <div class="q-card" id="q-text">질문 로딩...</div>
+    <div class="btns" id="btn-group"></div>
+    
+    <div id="q-list"></div>
+    <p id="msg" style="font-size: 0.8rem; margin-top: 10px; color: #666;"></p>
+</div>
+
+<script>
+    const data = [
+        { q: "세상에서 가장 가난한 왕은?", a: "최저임금", s: ["세종대왕", "최저임금", "사자왕", "거지왕"] },
+        { q: "우유가 아프면?", a: "앙팡", s: ["치즈", "앙팡", "저지방", "상했음"] },
+        { q: "소가 웃으면?", a: "우하하", s: ["음메", "폭소", "우하하", "미친소"] },
+        { q: "딸기가 직장을 잃으면?", a: "딸기시럽", s: ["백수", "딸기시럽", "잼", "산딸기"] }
+    ];
+
+    let step = 0;
+    let queue = [];
+
+    function render() {
+        // 문제 표시 (모든 문제를 다 냈어도 큐가 남았으면 큐 비우기 모드)
+        const currentQ = (step < data.length) ? `Q${step+1}. ${data[step].q}` : "📢 모든 정답 제출 완료! 큐를 비우세요.";
+        document.getElementById('q-text').innerText = currentQ;
+
+        // 버튼 생성 (항상 현재 단계의 선택지를 보여줌)
+        const btnGroup = document.getElementById('btn-group');
+        btnGroup.innerHTML = '';
+        const choices = (step < data.length) ? data[step].s : ["탈출", "종료", "비우기", "만우절"];
+        choices.forEach(c => {
+            const b = document.createElement('button');
+            b.innerText = c;
+            b.onclick = () => handle(c);
+            btnGroup.appendChild(b);
+        });
+
+        // 큐 시각화
+        const qList = document.getElementById('q-list');
+        qList.innerHTML = '';
+        queue.forEach((v, i) => {
+            const n = document.createElement('div');
+            n.className = 'node' + (i === 0 ? ' front' : '');
+            n.innerText = v;
+            qList.appendChild(n);
+        });
+    }
+
+    function handle(choice) {
+        const msg = document.getElementById('msg');
+        queue.push(choice); // 일단 무조건 큐에 넣음 (EnQueue)
+
+        // 검증: 큐의 맨 앞(Front)이 현재 단계의 정답과 일치하는가?
+        if (step < data.length) {
+            if (queue[0] === data[step].a) {
+                queue.shift(); // 정답이면 큐에서 제거 (DeQueue)
+                step++;
+                msg.innerText = "✅ 정답이 큐에서 처리되었습니다!";
+                msg.style.color = "green";
+            } else {
+                msg.innerText = `❌ Front의 '${queue[0]}'이(가) 정답이 아닙니다.`;
+                msg.style.color = "red";
+            }
+        } else {
+            // 모든 문제를 다 풀었을 때 큐 비우기 로직
+            queue.shift();
+            if (queue.length === 0) {
+                alert("🎉 성공! 사실 만우절 장난이었지롱! 🐟");
+                location.reload();
+            } else {
+                msg.innerText = "남은 데이터를 밀어내는 중...";
+            }
+        }
+        render();
+    }
+
+    render();
+</script>
+</body>
+</html>
