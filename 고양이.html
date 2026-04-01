@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>⚠️ CRITICAL ERROR: KERNEL_PANIC</title>
+    <style>
+        body { background: #000; color: #33ff33; font-family: 'Courier New', Courier, monospace; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; overflow: hidden; }
+        #terminal { width: 600px; border: 2px solid #33ff33; padding: 20px; position: relative; box-shadow: 0 0 15px #33ff33; }
+        #monitor { height: 250px; overflow-y: auto; border-bottom: 1px solid #114411; margin-bottom: 15px; font-size: 0.9rem; }
+        .queue-view { display: flex; gap: 10px; margin-top: 20px; background: #051505; padding: 10px; border: 1px dashed #33ff33; }
+        .q-node { border: 1px solid #33ff33; padding: 5px 10px; font-size: 0.8rem; animation: blink 1s infinite; }
+        .btn-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+        button { background: transparent; border: 1px solid #33ff33; color: #33ff33; padding: 10px; cursor: pointer; transition: 0.3s; }
+        button:hover { background: #33ff33; color: #000; }
+        #progress-container { width: 100%; background: #111; height: 10px; margin-top: 10px; }
+        #progress-bar { width: 0%; height: 100%; background: #33ff33; transition: width 0.5s; }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+        .error { color: #ff3333; }
+    </style>
+</head>
+<body>
+
+<div id="terminal">
+    <div style="font-weight: bold; margin-bottom: 10px;">[INTERNAL KERNEL v4.01 - REPAIR MODE]</div>
+    <div id="monitor">
+        [SYSTEM] 커널 응답 없음...<br>
+        [SYSTEM] 입력 명령어가 처리 대기 큐(Instruction Queue)에 적재됩니다.<br>
+        [SYSTEM] 큐가 꽉 차면 순차적으로 실행(Execute)됩니다.
+    </div>
+
+    <div class="btn-grid">
+        <button onclick="pushQueue('REBOOT')">REBOOT</button>
+        <button onclick="pushQueue('FIX_MBR')">FIX_MBR</button>
+        <button onclick="pushQueue('FLUSH')">FLUSH</button>
+        <button onclick="pushQueue('SCAN')">SCAN</button>
+        <button onclick="pushQueue('DEFRAG')">DEFRAG</button>
+        <button onclick="pushQueue('BYPASS')">BYPASS</button>
+    </div>
+
+    <div class="queue-view" id="queue-display">
+        </div>
+    
+    <div id="progress-container"><div id="progress-bar"></div></div>
+    <p id="status" style="font-size: 0.7rem; text-align: right;">QUEUE CAPACITY: 0/5</p>
+</div>
+
+<script>
+    let instructionQueue = [];
+    const MAX_SIZE = 5;
+    let repairScore = 0;
+    const targetScore = 100;
+
+    const monitor = document.getElementById('monitor');
+    const qDisplay = document.getElementById('queue-display');
+    const progressBar = document.getElementById('progress-bar');
+    const statusText = document.getElementById('status');
+
+    function log(msg, isError = false) {
+        const div = document.createElement('div');
+        if(isError) div.className = 'error';
+        div.innerHTML = `> ${msg}`;
+        monitor.appendChild(div);
+        monitor.scrollTop = monitor.scrollHeight;
+    }
+
+    function updateUI() {
+        qDisplay.innerHTML = '';
+        instructionQueue.forEach(item => {
+            const node = document.createElement('div');
+            node.className = 'q-node';
+            node.innerText = item;
+            qDisplay.appendChild(node);
+        });
+        statusText.innerText = `QUEUE CAPACITY: ${instructionQueue.length}/${MAX_SIZE}`;
+        progressBar.style.width = `${repairScore}%`;
+    }
+
+    function pushQueue(cmd) {
+        if (instructionQueue.length < MAX_SIZE) {
+            instructionQueue.push(cmd);
+            log(`명령어 [${cmd}]가 큐의 REAR에 적재되었습니다.`);
+            updateUI();
+        } 
+        
+        // 큐가 가득 차면 실행 시작
+        if (instructionQueue.length === MAX_SIZE) {
+            processQueue();
+        }
+    }
+
+    function processQueue() {
+        log("큐가 가득 찼습니다. 일괄 처리를 시작합니다...", true);
+        
+        const interval = setInterval(() => {
+            if (instructionQueue.length > 0) {
+                const currentCmd = instructionQueue.shift(); // FIFO
+                executeCmd(currentCmd);
+                updateUI();
+            } else {
+                clearInterval(interval);
+                log("모든 대기 명령어가 처리되었습니다.");
+                checkWin();
+            }
+        }, 800); // 0.8초 간격으로 하나씩 실행되는 척
+    }
+
+    function executeCmd(cmd) {
+        // 실제로는 뭘 눌러도 점수가 랜덤하게 오름 (만우절!)
+        const gain = Math.floor(Math.random() * 15) + 5;
+        repairScore += gain;
+        if(repairScore > 100) repairScore = 100;
+        log(`실행 완료: ${cmd} (복구율 +${gain}%)`);
+    }
+
+    function checkWin() {
+        if (repairScore >= targetScore) {
+            setTimeout(() => {
+                alert("🔧 [시스템 복구 완료]\n\n그런데 오늘이 무슨 날인지 아시나요?\n입력할 땐 안 되고 나중에만 실행되는 '만우절 큐'였습니다! 😜");
+                location.reload();
+            }, 500);
+        }
+    }
+
+    updateUI();
+</script>
+</body>
+</html>
