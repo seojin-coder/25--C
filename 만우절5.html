@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Queue-Based Liar Game v1.0</title>
+    <style>
+        body { font-family: 'Malgun Gothic', sans-serif; background-color: #f8f9fa; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        #game-box { background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); width: 400px; text-align: center; border: 2px solid #004a99; }
+        h1 { color: #004a99; font-size: 1.5rem; margin-bottom: 10px; }
+        .info { font-size: 0.8rem; color: #666; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        #display { min-height: 100px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; font-weight: bold; margin-bottom: 20px; color: #333; }
+        .queue-viz { display: flex; gap: 5px; justify-content: center; margin-bottom: 20px; }
+        .q-node { width: 40px; height: 40px; border: 1px solid #004a99; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; background: #eef6ff; }
+        button { background: #004a99; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; width: 100%; font-weight: bold; margin-top: 5px; }
+        button:hover { background: #003366; }
+        #secret-area { display: none; background: #fff3cd; padding: 15px; border-radius: 10px; margin-top: 15px; border: 1px solid #ffeeba; }
+    </style>
+</head>
+<body>
+
+<div id="game-box">
+    <h1>🎭 큐-라이어 게임</h1>
+    <div class="info">사용자: seojin-coder | 모드: FIFO 검증</div>
+
+    <div id="display">아래 버튼을 눌러 게임을 시작하세요.</div>
+
+    <div class="queue-viz" id="q-viz">
+        </div>
+
+    <div id="controls">
+        <button onclick="setupGame()">게임 세팅 (EnQueue)</button>
+        <button id="check-btn" onclick="checkKeyword()" style="display:none;">제시어 확인 (DeQueue)</button>
+    </div>
+
+    <div id="secret-area">
+        <div style="font-size: 0.8rem; color: #856404;">당신의 제시어:</div>
+        <div id="keyword-val" style="font-size: 1.5rem; color: #856404;"></div>
+        <button onclick="nextTurn()" style="background:#856404; margin-top:10px;">확인 완료</button>
+    </div>
+</div>
+
+<script>
+    const topics = [
+        { word: "은행", liar: "침대" },
+        { word: "스마트폰", liar: "텔레비전" },
+        { word: "노트북", liar: "계산기" },
+        { word: "교수님", liar: "조교님" }
+    ];
+
+    let gameQueue = [];
+    let currentPlayer = 1;
+    let totalPlayers = 3;
+
+    function setupGame() {
+        const topic = topics[Math.floor(Math.random() * topics.length)];
+        const liarIndex = Math.floor(Math.random() * totalPlayers);
+        
+        gameQueue = [];
+        for (let i = 0; i < totalPlayers; i++) {
+            gameQueue.push(i === liarIndex ? topic.liar : topic.word);
+        }
+
+        document.getElementById('display').innerText = "데이터 적재 완료. 순서대로 확인하세요.";
+        document.getElementById('check-btn').style.display = 'block';
+        currentPlayer = 1;
+        renderQueue();
+    }
+
+    function checkKeyword() {
+        if (gameQueue.length === 0) return;
+        
+        document.getElementById('display').style.display = 'none';
+        document.getElementById('controls').style.display = 'none';
+        document.getElementById('secret-area').style.display = 'block';
+        
+        // DeQueue: 큐의 맨 앞 데이터를 확인
+        const myWord = gameQueue.shift();
+        document.getElementById('keyword-val').innerText = myWord;
+        renderQueue();
+    }
+
+    function nextTurn() {
+        document.getElementById('secret-area').style.display = 'none';
+        document.getElementById('display').style.display = 'flex';
+        document.getElementById('controls').style.display = 'block';
+        
+        if (gameQueue.length > 0) {
+            currentPlayer++;
+            document.getElementById('display').innerText = `${currentPlayer}번 플레이어 차례입니다.`;
+        } else {
+            document.getElementById('display').innerText = "모든 확인이 끝났습니다. 토론을 시작하세요!";
+            document.getElementById('check-btn').style.display = 'none';
+            
+            // 만우절 피날레: 3초 후 모두에게 '낚시 성공' 알림
+            setTimeout(() => {
+                alert("🐟 [SYSTEM] 만우절 감지!\n사실 모두가 '라이어'였습니다! 제시어가 전부 달랐거든요.\n오늘 하루 즐겁게 보내세요, 교수님! (첨지 올림)");
+            }, 5000);
+        }
+    }
+
+    function renderQueue() {
+        const viz = document.getElementById('q-viz');
+        viz.innerHTML = '';
+        gameQueue.forEach((_, i) => {
+            const node = document.createElement('div');
+            node.className = 'q-node';
+            node.innerText = `DATA`;
+            viz.appendChild(node);
+        });
+    }
+</script>
+</body>
+</html>
