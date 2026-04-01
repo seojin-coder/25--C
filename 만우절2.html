@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>심리 테스트: 당신의 논리력은? (Q-Test)</title>
+    <style>
+        body { background: #f0f2f5; font-family: 'Malgun Gothic', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        #game-card { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 400px; text-align: center; }
+        h2 { color: #333; margin-bottom: 20px; }
+        #question { font-size: 1.2rem; font-weight: bold; color: #4a90e2; min-height: 60px; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; }
+        input { width: 80%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 1rem; margin-bottom: 10px; }
+        button { background: #4a90e2; color: white; border: none; padding: 12px 25px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        #status-box { margin-top: 20px; padding: 10px; background: #fff4f4; border-radius: 8px; font-size: 0.85rem; color: #d0021b; min-height: 40px; }
+        .queue-visual { margin-top: 15px; display: flex; gap: 5px; justify-content: center; }
+        .q-item { background: #eee; padding: 5px 10px; border-radius: 4px; font-size: 0.7rem; border: 1px solid #ccc; }
+        .q-front { background: #ff7675; color: white; border-color: #d63031; }
+    </style>
+</head>
+<body>
+
+<div id="game-card">
+    <h2>🧩 초능력/논리 테스트</h2>
+    <p style="font-size: 0.8rem; color: #888;">모든 질문의 정답이 큐에서 비워져야 종료됩니다.</p>
+    
+    <div id="question">준비되셨나요?</div>
+    
+    <input type="text" id="ans-input" placeholder="정답을 입력하세요" autocomplete="off">
+    <button onclick="check()">확인</button>
+
+    <div id="status-box" id="msg">시스템 대기 중...</div>
+
+    <div style="margin-top:20px; font-size: 0.75rem; color: #999;">현재 처리 대기 큐 (Front)</div>
+    <div class="queue-visual" id="queue-bar"></div>
+</div>
+
+<script>
+    // 넌센스 문제와 정답
+    const quiz = [
+        { q: "세상에서 가장 가난한 왕은?", a: "최저임금" },
+        { q: "우유가 아프면?", a: "앙팡" },
+        { q: "소가 웃으면?", a: "우하하" },
+        { q: "딸기가 직장을 잃으면?", a: "딸기시럽" }
+    ];
+
+    let currentIdx = 0;
+    let userQueue = [];
+    let isFirst = true;
+
+    const qText = document.getElementById('question');
+    const input = document.getElementById('ans-input');
+    const msg = document.getElementById('status-box');
+    const qBar = document.getElementById('queue-bar');
+
+    function updateView() {
+        if(currentIdx < quiz.length) {
+            qText.innerText = quiz[currentIdx].q;
+        } else {
+            qText.innerText = "🎉 테스트 완료! (데이터 정리 중...)";
+        }
+
+        qBar.innerHTML = '';
+        userQueue.forEach((v, i) => {
+            const div = document.createElement('div');
+            div.className = 'q-item' + (i === 0 ? ' q-front' : '');
+            div.innerText = v;
+            qBar.appendChild(div);
+        });
+    }
+
+    function check() {
+        const val = input.value.trim();
+        if(!val) return;
+
+        // 1. 일단 큐에 넣기 (EnQueue)
+        userQueue.push(val);
+        input.value = '';
+
+        // 2. 만우절 킹받는 로직
+        // 첫 번째 입력은 무조건 "데이터 수집 중"이라며 넘김
+        if(isFirst) {
+            msg.innerText = `[알림] '${val}' 데이터가 큐에 입력되었습니다. 검증을 시작합니다.`;
+            isFirst = false;
+            updateView();
+            return;
+        }
+
+        // 3. 큐의 맨 앞(Front)과 현재 문제의 정답 비교
+        const frontVal = userQueue[0];
+        const correct = quiz[currentIdx].a;
+
+        if(frontVal === correct) {
+            userQueue.shift(); // 성공하면 DeQueue
+            msg.style.color = "#2ecc71";
+            msg.innerText = `[성공] 큐 Front의 '${frontVal}' 검증 완료! 다음 문제로.`;
+            currentIdx++;
+            
+            if(currentIdx === quiz.length && userQueue.length === 0) {
+                alert("축하합니다! 당신은 천재... 가 아니라 만우절에 낚이셨습니다! 😜");
+                location.reload();
+            }
+        } else {
+            msg.style.color = "#d0021b";
+            msg.innerText = `[실패] 현재 큐 맨 앞의 '${frontVal}'은(는) 정답이 아닙니다. (정답을 밀어넣으세요!)`;
+        }
+        updateView();
+    }
+
+    // 엔터키 지원
+    input.addEventListener('keyup', (e) => { if(e.key === 'Enter') check(); });
+    updateView();
+</script>
+
+</body>
+</html>
