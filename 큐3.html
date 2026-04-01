@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>만우절 특사: 덱 대리의 눈치껏 칼퇴하기</title>
+    <style>
+        body { font-family: 'Pretendard', sans-serif; background-color: #fdfbf7; color: #333; text-align: center; margin: 0; padding: 20px; overflow: hidden; }
+        .game-title { color: #2c3e50; margin-bottom: 10px; font-weight: 800; }
+        
+        /* 헤더 통계창 */
+        .stat-bar { display: flex; justify-content: center; gap: 30px; font-size: 1.1rem; margin-bottom: 20px; background: white; padding: 15px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        
+        /* 상사 위치 및 작업대 */
+        .game-field { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; padding: 0 50px; position: relative; }
+        .boss-zone { width: 120px; font-size: 4rem; position: relative; }
+        .speech-bubble { position: absolute; top: -40px; left: 50%; transform: translateX(-50%); background: white; padding: 5px 10px; border-radius: 10px; font-size: 0.8rem; border: 1px solid #ddd; white-space: nowrap; opacity: 0; transition: opacity 0.3s; }
+
+        .desk-container { display: flex; gap: 20px; }
+        .pc { width: 150px; height: 110px; background-color: #ecf0f1; border: 4px solid #bdc3c7; border-radius: 15px; display: flex; flex-direction: column; justify-content: center; align-items: center; font-weight: bold; position: relative; transition: 0.3s; }
+        .pc.working { border-color: #3498db; background-color: #ebf5fb; box-shadow: 0 0 15px rgba(52, 152, 219, 0.3); }
+        
+        /* 제어 버튼 */
+        .controls { margin-bottom: 40px; }
+        button { padding: 15px 30px; font-size: 1rem; cursor: pointer; border: none; border-radius: 30px; margin: 0 15px; font-weight: bold; transition: 0.3s; box-shadow: 0 4px 10px rgba(0,0,0,0.1); color: white; }
+        #btn-left { background-color: #2ecc71; } /* 과장님 일 처리 (popleft) */
+        #btn-right { background-color: #e67e22; } /* 부장님 일 반사 (pop) */
+        button:hover { transform: translateY(-3px); filter: brightness(1.1); }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+
+        /* 업무 덱 (Deque) 및 애니메이션 */
+        .deque-area { background: #fff; padding: 25px; border-radius: 25px; min-height: 200px; display: flex; align-items: flex-end; gap: 15px; overflow-x: auto; border: 2px dashed #eee; position: relative; }
+        .task-card { width: 120px; background: white; border: 2px solid #34495e; border-radius: 15px; position: relative; flex-shrink: 0; box-shadow: 0 5px 15px rgba(0,0,0,0.05); animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        
+        .task-emoji { font-size: 2.5rem; margin: 10px 0; }
+        .stress-label { font-size: 0.7rem; color: #e74c3c; font-weight: bold; margin-bottom: 5px; }
+        .stress-bar { height: 6px; background: #eee; border-radius: 3px; overflow: hidden; margin: 0 10px 10px; }
+        .stress-fill { height: 100%; background: #e74c3c; transition: width 0.5s linear; }
+
+        /* 애니메이션 정의 */
+        @keyframes popIn { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        @keyframes workingAnim { from { transform: scale(1); } to { transform: scale(1.02); } }
+        
+        @keyframes dropOut { from { transform: scale(1); opacity: 1; } to { transform: scale(1.5) translateY(50px); opacity: 0; } }
+        @keyframes reflectOut { from { transform: scale(1); opacity: 1; } to { transform: translateX(100px) rotate(20deg); opacity: 0; } }
+
+        .removing-left { animation: dropOut 0.3s forwards !important; }
+        .removing-right { animation: reflectOut 0.3s forwards !important; }
+
+    </style>
+</head>
+<body>
+
+    <h1 class="game-title">👨‍💻 덱 대리의 "나 오늘 퇴근한다" v2.0</h1>
+    <div class="stat-bar">
+        <div>평판 점수: <span id="score">0</span> 📈</div>
+        <div>스트레스 지수: <span id="stress">0</span> / 100 🌋</div>
+    </div>
+
+    <div class="game-field">
+        <div class="boss-zone" id="boss-left">
+            👴
+            <div class="speech-bubble" id="bubble-left">이것 좀 대충...</div>
+        </div>
+        
+        <div class="desk-container" id="pcs">
+            <div class="pc" id="pc-0">휴식 중</div>
+            <div class="pc" id="pc-1">휴식 중</div>
+        </div>
+
+        <div class="boss-zone" id="boss-right">
+            👨‍💼
+            <div class="speech-bubble" id="bubble-right">박 대리!</div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button id="btn-left" onclick="handleTask('left')">과장님 일 정석 처리 (popleft)</button>
+        <button id="btn-right" onclick="handleTask('right')">부장님 일 "이미 했는데요?" (pop)</button>
+    </div>
+
+    <h3>📥 내 책상 (Deque: 상사들이 양쪽에서 던짐)</h3>
+    <div class="deque-area" id="deque">
+        </div>
+
+    <script>
+        // 업무별 소요 시간 다르게 설정 (유익함!)
+        const TASKS = [
+            { type: 'report', emoji: '📂', time: 10, stress: 15, name: '지옥 보고서' }, // 김
+            { type: 'call', emoji: '📞', time: 3, stress: 5, name: '거래처 응대' }, // 단
+            { type: 'coffee', emoji: '☕', time: 2, stress: 3, name: '부장님 커피' }, // 단
+            { type: 'meeting', emoji: '📅', time: 7, stress: 10, name: '긴급 미팅' }  // 중
+        ];
+
+        let deque = [];
+        let workstations = [null, null]; // 멀티태스킹 PC
+        let score = 0;
+        let stress = 0;
+        let gameClock;
+        let difficulty = 5000; // 초기 업무 생성 속도 (난이도 낮춤)
+
+        function spawnTask(side) {
+            const randomTask = TASKS[Math.floor(Math.random() * TASKS.length)];
+            const task = { ...randomTask, id: Date.now(), currentAnger: 0 };
+            
+            // 시각 효과: 상사 대사
+            const bubble = document.getElementById(side === 'left' ? 'bubble-left' : 'bubble-right');
+            const msgs = side === 'left' ? ["대충 해~", "박 대리!", "이것 좀..."] : ["박 대리!", "긴급이야!", "언제 돼?"];
+            bubble.innerText = msgs[Math.floor(Math.random() * msgs.length)];
+            bubble.style.opacity = 1;
+            setTimeout(() => bubble.style.opacity = 0, 1500);
+
+            deque.push(task); // Deque의 Rear(오른쪽)에 삽입
+            renderDeque();
+        }
+
+        function handleTask(side) {
+            if (deque.length === 0) return;
+            
+            const emptyIdx = workstations.findIndex(w => w === null);
+            if (emptyIdx === -1) {
+                alert("이미 손이 모자랍니다! (업무 과부하)");
+                return;
+            }
+
+            // 시각 효과: 삭제 애니메이션
+            const taskCards = document.querySelectorAll('.task-card');
+            const targetCard = side === 'left' ? taskCards[0] : taskCards[taskCards.length - 1];
+            targetCard.classList.add(side === 'left' ? 'removing-left' : 'removing-right');
+
+            // 애니메이션 후 로직 실행
+            setTimeout(() => {
+                let target;
+                if (side === 'left') {
+                    target = deque.shift(); // 왼쪽 제거 (popleft)
+                    score += 5; 
+                } else {
+                    target = deque.pop(); // 오른쪽 제거 (pop)
+                    score += 15; // 순발력 반사는 점수 높음
+                    stress += 2; // 괘씸죄 스트레스 (낮춤)
+                }
+
+                workstations[emptyIdx] = { ...target, timeLeft: target.time };
+                renderAll();
+            }, 300);
+        }
+
+        function gameLoop() {
+            // 1. 덱 안의 업무들 '상사 분노도' 상승 (스트레스 요소)
+            for (let i = deque.length - 1; i >= 0; i--) {
+                deque[i].currentAnger += 1.5; // 상승 폭 낮춤
+                if (deque[i].currentAnger >= 100) {
+                    stress += deque[i].stress; // 스트레스 폭탄
+                    deque.splice(i, 1);
+                }
+            }
+
+            // 2. 내 PC 업무 처리
+            for (let i = 0; i < workstations.length; i++) {
+                if (workstations[i]) {
+                    workstations[i].timeLeft -= 0.5; // 처리 속도 (1초에 0.5초씩)
+                    if (workstations[i].timeLeft <= 0) {
+                        workstations[i] = null;
+                        score += 10;
+                    }
+                }
+            }
+
+            updateStats();
+            renderAll();
+            checkGameOver();
+        }
+
+        function renderDeque() {
+            const deqEl = document.getElementById('deque');
+            deqEl.innerHTML = '';
+            deque.forEach(t => {
+                const card = document.createElement('div');
+                card.className = 'task-card';
+                card.innerHTML = `
+                    <div class="stress-label">폭발 임박: ${Math.floor(t.currentAnger)}%</div>
+                    <div class="stress-bar"><div class="stress-fill" style="width:${t.currentAnger}%"></div></div>
+                    <div class="task-emoji">${t.emoji}</div>
+                    <div style="font-weight:bold; font-size:0.9rem;">${t.name}</div>
+                    <div style="font-size:0.7rem; color:#888;">소요: ${t.time}s</div>
+                `;
+                deqEl.appendChild(card);
+            });
+        }
+
+        function renderAll() {
+            renderDeque();
+            // PC 렌더링
+            workstations.forEach((w, i) => {
+                const pc = document.getElementById(`pc-${i}`);
+                if (w) {
+                    pc.className = 'pc working';
+                    pc.style.animation = 'workingAnim 0.5s infinite alternate';
+                    pc.innerHTML = `<div style="font-size:2rem;">${w.icon}</div><div style="font-weight:bold; color:#3498db;">${w.timeLeft.toFixed(1)}s</div>`;
+                } else {
+                    pc.className = 'pc';
+                    pc.style.animation = 'none';
+                    pc.innerHTML = '휴식 중';
+                }
+            });
+        }
+
+        function updateStats() {
+            document.getElementById('score').innerText = score;
+            document.getElementById('stress').innerText = Math.floor(stress);
+        }
+
+        function checkGameOver() {
+            if (stress >= 100) {
+                clearInterval(gameClock);
+                clearInterval(spawnClock);
+                alert(`😱 [번아웃 발생] 최종 실적: ${score}\n당신은 야근의 굴레에서 벗어나지 못했습니다.`);
+                location.reload();
+            }
+        }
+
+        // 초기화
+        let spawnClock;
+        function init() {
+            gameClock = setInterval(gameLoop, 500); // 0.5초마다 루프
+            
+            // 양방향 업무 생성 시스템
+            spawnClock = setInterval(() => {
+                spawnTask(Math.random() > 0.5 ? 'left' : 'right');
+            }, difficulty);
+            
+            spawnTask('left'); // 시작하자마자 하나 던짐
+            renderAll();
+        }
+
+        init();
+    </script>
+</body>
+</html>
