@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>⚠️ EMERGENCY: SERVER MEMORY CORRUPTION</title>
+    <style>
+        body { background: #0b0e14; color: #00ff41; font-family: 'Courier New', monospace; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        #console { width: 500px; border: 2px solid #00ff41; padding: 20px; box-shadow: 0 0 20px #00ff41; background: #000; }
+        .screen { border: 1px solid #004411; padding: 15px; margin-bottom: 20px; min-height: 100px; }
+        .btn-area { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        button { background: transparent; border: 1px solid #00ff41; color: #00ff41; padding: 10px; cursor: pointer; font-family: inherit; }
+        button:hover { background: #00ff41; color: #000; }
+        .queue-viz { display: flex; gap: 5px; margin-top: 15px; height: 40px; border-top: 1px solid #004411; padding-top: 10px; }
+        .node { border: 1px solid #00ff41; padding: 2px 8px; font-size: 0.8rem; display: flex; align-items: center; }
+        .node.error { color: #ff3333; border-color: #ff3333; }
+        #log { font-size: 0.7rem; color: #008822; margin-top: 10px; height: 50px; overflow: hidden; }
+        .progress { width: 0%; height: 5px; background: #00ff41; transition: width 0.3s; margin-top: 5px; }
+    </style>
+</head>
+<body>
+
+<div id="console">
+    <div style="font-weight: bold; margin-bottom: 10px;">[SYSTEM STATUS: CRITICAL]</div>
+    <div class="screen" id="display">
+        정상적인 노드를 클릭하여 메모리 큐(Queue)의 <span style="color: #ff3333;">[ERR]</span> 데이터를 밀어내십시오.
+    </div>
+    
+    <div class="btn-area" id="buttons">
+        </div>
+
+    <div class="queue-viz" id="queue-box">
+        </div>
+    <div class="progress" id="bar"></div>
+    
+    <div id="log"></div>
+</div>
+
+<script>
+    const labels = ["CLEAN", "REPAIR", "RESTORE", "PURGE", "FIX", "SYNC"];
+    let queue = ["ERR", "ERR", "ERR", "ERR"]; // 처음에 쌓여있는 에러들
+    let fixCount = 0;
+    const target = 10; // 10번 성공해야 끝남
+
+    function render() {
+        // 1. 큐 시각화
+        const qBox = document.getElementById('queue-box');
+        qBox.innerHTML = '';
+        queue.forEach(v => {
+            const n = document.createElement('div');
+            n.className = 'node' + (v === 'ERR' ? ' error' : '');
+            n.innerText = v;
+            qBox.appendChild(n);
+        });
+
+        // 2. 버튼 무작위 배치 (버튼을 누를 때마다 위치가 바뀜)
+        const btnArea = document.getElementById('buttons');
+        btnArea.innerHTML = '';
+        const shuffled = [...labels].sort(() => Math.random() - 0.5);
+        shuffled.forEach(label => {
+            const b = document.createElement('button');
+            b.innerText = label;
+            b.onclick = () => handleAction(label);
+            btnArea.appendChild(b);
+        });
+
+        // 3. 진행도
+        document.getElementById('bar').style.width = (fixCount / target * 100) + "%";
+    }
+
+    function handleAction(label) {
+        const log = document.getElementById('log');
+        const display = document.getElementById('display');
+
+        // 킹받는 포인트 1: 30% 확률로 "접근 거부" 발생
+        if (Math.random() < 0.3) {
+            log.innerHTML = `<span style="color:red;">> ACCESS_DENIED: 0x${Math.random().toString(16).slice(2,6).toUpperCase()}</span><br>` + log.innerHTML;
+            display.innerText = "경고: 시스템이 사용자의 요청을 거부했습니다. 다시 시도하십시오.";
+            render();
+            return;
+        }
+
+        // 큐 로직: 새로운 데이터가 들어오면 앞의 데이터가 빠짐
+        queue.push(label);
+        const removed = queue.shift();
+
+        if (removed === 'ERR') {
+            fixCount++;
+            log.innerHTML = `> DELETED: ERROR_NODE_0x${fixCount}<br>` + log.innerHTML;
+            display.innerText = "메모리 복구 중... 큐 헤드에서 에러 노드가 감지되었습니다.";
+        } else {
+            log.innerHTML = `> IGNORED: ${removed} (이미 깨끗한 노드입니다)<br>` + log.innerHTML;
+            display.innerText = "주의: 이미 복구된 노드입니다. 에러 노드를 밀어내십시오.";
+        }
+
+        if (fixCount >= target && queue.every(v => v !== 'ERR')) {
+            alert("서버 복구 완료! \n\n사실은 만우절 장난이었습니다. 😜 \n오늘 하루 즐겁게 보내세요!");
+            location.reload();
+        }
+        render();
+    }
+
+    render();
+</script>
+</body>
+</html>
