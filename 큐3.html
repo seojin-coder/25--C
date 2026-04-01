@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>만우절 특사: 잔소리 폭격 속 칼퇴 도전</title>
+    <style>
+        :root {
+            --bg-color: #f4f7f6;
+            --text-color: #333;
+            --office-brown: #8e6e46;
+            --stress-red: #e74c3c;
+            --work-blue: #3498db;
+            --success-green: #2ecc71;
+        }
+
+        body { font-family: 'Pretendard', sans-serif; background-color: var(--bg-color); color: var(--text-color); text-align: center; margin: 0; padding: 20px; overflow: hidden; }
+        
+        /* 헤더 및 통계 */
+        .game-header { display: flex; justify-content: space-around; align-items: center; background: white; padding: 15px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        .stat-item { font-size: 1.1rem; font-weight: bold; }
+        .stat-label { font-size: 0.8rem; color: #7f8c8d; display: block; }
+
+        /* 상사 배치 구역 */
+        .boss-zone { display: flex; justify-content: space-between; padding: 0 50px; margin-bottom: 20px; }
+        .boss { font-size: 3rem; position: relative; animation: hover 2s infinite alternate; }
+        .boss::after { content: '💢'; position: absolute; top: -10px; right: -10px; font-size: 1.5rem; opacity: 0; animation: anger 3s infinite; }
+        #boss-left { color: #e67e22; } /* 과장님 */
+        #boss-right { color: #c0392b; } /* 부장님 */
+
+        /* 내 책상 (PC) */
+        .desk-area { display: flex; justify-content: center; gap: 20px; margin-bottom: 30px; }
+        .pc { width: 150px; height: 110px; background: #ecf0f1; border: 4px solid #bdc3c7; border-radius: 12px; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: 0.3s; position: relative; }
+        .pc.working { border-color: var(--work-blue); background: #eaf2f8; animation: workingGlow 1s infinite alternate; }
+        .pc.working::before { content: '⏳'; position: absolute; top: 5px; right: 5px; font-size: 1.2rem; }
+
+        /* 컨트롤 버튼 */
+        .controls { margin-bottom: 30px; }
+        button { padding: 12px 28px; font-size: 1rem; cursor: pointer; border: none; border-radius: 30px; margin: 0 10px; font-weight: bold; transition: 0.3s; box-shadow: 0 4px 6px rgba(0,0,0,0.1); color: white; }
+        #btn-left { background-color: var(--success-green); }
+        #btn-right { background-color: #f39c12; }
+        button:hover { transform: translateY(-3px); box-shadow: 0 6px 12px rgba(0,0,0,0.15); }
+        button:disabled { background-color: #ccc; cursor: not-allowed; transform: none; box-shadow: none; }
+
+        /* 업무 덱 (Deque) 영역 */
+        .deque-container { background: white; padding: 20px; border-radius: 20px; min-height: 180px; display: flex; align-items: flex-end; gap: 15px; overflow-x: auto; border: 2px solid #eee; position: relative; }
+        .task-card { width: 100px; padding: 10px; background: #fff; border: 2px solid #34495e; border-radius: 10px; flex-shrink: 0; position: relative; animation: taskSpawn 0.4s ease-out; }
+        .task-card.pop-effect { animation: taskPop 0.3s ease-in forwards; }
+        .task-emoji { font-size: 2rem; margin-bottom: 5px; }
+        
+        /* 스트레스 바 */
+        .stress-box { height: 6px; background: #eee; border-radius: 3px; overflow: hidden; margin-top: 5px; }
+        .stress-fill { height: 100%; background: var(--stress-red); transition: width 0.5s; }
+
+        /* 애니메이션 정의 */
+        @keyframes hover { from { transform: translateY(0); } to { transform: translateY(-10px); } }
+        @keyframes anger { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
+        @keyframes workingGlow { from { box-shadow: 0 0 5px var(--work-blue); } to { box-shadow: 0 0 15px var(--work-blue); } }
+        @keyframes taskSpawn { from { transform: scale(0.5) translateY(50px); opacity: 0; } to { transform: scale(1) translateY(0); opacity: 1; } }
+        @keyframes taskPop { to { transform: scale(1.5) rotate(15deg); opacity: 0; } }
+        @keyframes dequeShake { 0% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } 100% { transform: translateX(0); } }
+    </style>
+</head>
+<body>
+
+    <div class="game-header">
+        <div class="stat-item"><span class="stat-label">평판</span><span id="score">0</span> 👍</div>
+        <div class="stat-item"><span class="stat-label">스트레스</span><span id="stress">0</span> / 100 🌋</div>
+        <div class="stat-item"><span class="stat-label">시간</span><span id="timer">00:00</span> ⏰</div>
+    </div>
+
+    <div class="boss-zone">
+        <div class="boss" id="boss-left" title="과장님: 잔소리 대마왕">👴</div>
+        <div class="boss" id="boss-right" title="부장님: 최종 보스">👨‍⚖️</div>
+    </div>
+
+    <div class="desk-area" id="workstations">
+        <div class="pc" id="pc-0">휴식 중</div>
+        <div class="pc" id="pc-1">휴식 중</div>
+    </div>
+
+    <div class="controls">
+        <button id="btn-left" onclick="handleTask('left')">💼 순차 처리 (과장님 쪽)</button>
+        <button id="btn-right" onclick="handleTask('right')">⚠️ 긴급 반사 (부장님 쪽)</button>
+    </div>
+
+    <div class="deque-container" id="deque">
+        </div>
+    <div style="font-size: 0.8rem; color: #95a5a6; margin-top: 10px;">Queue (Deque) Structure: 양쪽에서 업무가 쌓이고 빠집니다.</div>
+
+    <script>
+        // 업무 데이터 (난이도 하향: 시간 증가, 스트레스 감소)
+        const JOB_LIST = [
+            { name: '주간 보고', icon: '📝', time: 6, stress: 8, from: 'left' },
+            { name: '거래처 전화', icon: '📞', time: 3, stress: 5, from: 'right' },
+            { name: '회의 록', icon: '⌨️', time: 8, stress: 12, from: 'left' },
+            { name: '커피 심부름', icon: '☕', time: 2, stress: 3, from: 'right' },
+            { name: '긴급 자료', icon: '🚨', time: 4, stress: 20, from: 'right' }
+        ];
+
+        let deque = [];
+        let pcs = [null, null];
+        let score = 0;
+        let stress = 0;
+        let gameTime = 0;
+        let gameClock;
+
+        function spawn() {
+            const job = JOB_LIST[Math.floor(Math.random() * JOB_LIST.length)];
+            const newTask = { ...job, id: Date.now(), progress: 0 };
+            
+            // 시각적 효과: 과장님/부장님 쪽에 따라 덱의 양끝에 추가
+            if (job.from === 'left') {
+                deque.unshift(newTask); // 왼쪽 추가 (prepend)
+            } else {
+                deque.push(newTask); // 오른쪽 추가 (append)
+            }
+            
+            triggerDequeEffect('shake');
+            renderAll();
+        }
+
+        function handleTask(dir) {
+            if (deque.length === 0) return;
+            const emptyIdx = pcs.findIndex(p => p === null);
+            if (emptyIdx === -1) {
+                alert("이미 손이 모자랍니다! (멀티태스킹 불가)");
+                return;
+            }
+
+            // 시각적 효과: 빠지는 카드에 애니메이션 적용
+            const taskCard = document.querySelector(dir === 'left' ? '.task-card:first-child' : '.task-card:last-child');
+            if (taskCard) taskCard.classList.add('pop-effect');
+
+            setTimeout(() => {
+                let task;
+                if (dir === 'left') {
+                    task = deque.shift(); // 왼쪽 제거 (popleft)
+                    score += 5; // 과장님 일은 평판 상승
+                } else {
+                    task = deque.pop(); // 오른쪽 제거 (pop)
+                    score += 10; // 부장님 긴급 일은 높은 점수
+                    stress += 2; // 하지만 괘씸죄로 스트레스 약간 상승
+                }
+
+                pcs[emptyIdx] = { ...task, timeLeft: task.time };
+                triggerDequeEffect('pop');
+                renderAll();
+            }, 300); // 애니메이션 시간 대기
+        }
+
+        function gameLoop() {
+            gameTime++;
+            const min = String(Math.floor(gameTime / 60)).padStart(2, '0');
+            const sec = String(gameTime % 60).padStart(2, '0');
+            document.getElementById('timer').innerText = `${min}:${sec}`;
+
+            // 1. 덱 안의 업무들 '방치' 스트레스 상승 (난이도 하향: 상승폭 감소)
+            for (let i = deque.length - 1; i >= 0; i--) {
+                deque[i].progress += 1.5;
+                if (deque[i].progress >= 100) {
+                    stress += deque[i].stress;
+                    deque.splice(i, 1);
+                    triggerDequeEffect('shake');
+                }
+            }
+
+            // 2. PC 업무 처리
+            pcs.forEach((p, i) => {
+                if (p) {
+                    p.timeLeft -= 1;
+                    if (p.timeLeft <= 0) {
+                        pcs[i] = null;
+                        score += 15;
+                    }
+                }
+            });
+
+            updateStats();
+            renderAll();
+            checkGameOver();
+        }
+
+        function renderAll() {
+            // 덱 렌더링
+            const deqEl = document.getElementById('deque');
+            deqEl.innerHTML = '';
+            deque.forEach(t => {
+                const card = document.createElement('div');
+                card.className = 'task-card';
+                card.innerHTML = `
+                    <div style="font-size:0.7rem; color:${t.from === 'left' ? '#e67e22' : '#c0392b'}">
+                        ${t.from === 'left' ? '과장' : '부장'}
+                    </div>
+                    <div class="task-emoji">${t.icon}</div>
+                    <div style="font-weight:bold; font-size:0.8rem;">${t.name}</div>
+                    <div style="font-size:0.6rem">소요: ${t.time}s</div>
+                    <div class="stress-box"><div class="stress-fill" style="width:${t.progress}%"></div></div>
+                `;
+                deqEl.appendChild(card);
+            });
+
+            // PC 렌더링
+            pcs.forEach((p, i) => {
+                const el = document.getElementById(`pc-${i}`);
+                if (p) {
+                    el.className = 'pc working';
+                    el.innerHTML = `<b>${p.name}</b><br><span style="color:var(--work-blue)">${p.timeLeft}s</span>`;
+                } else {
+                    el.className = 'pc';
+                    el.innerHTML = '휴식 중';
+                }
+            });
+        }
+
+        function triggerDequeEffect(type) {
+            const deqEl = document.getElementById('deque');
+            if (type === 'shake') {
+                deqEl.style.animation = 'dequeShake 0.3s';
+                setTimeout(() => deqEl.style.animation = '', 300);
+            }
+        }
+
+        function updateStats() {
+            document.getElementById('score').innerText = score;
+            document.getElementById('stress').innerText = Math.floor(stress);
+        }
+
+        function checkGameOver() {
+            if (stress >= 100) {
+                clearInterval(gameClock);
+                clearInterval(spawnClock);
+                alert(`😰 번아웃! 최종 평판: ${score}\n당신은 야근의 굴레에서 벗어나지 못했습니다.`);
+                location.reload();
+            }
+        }
+
+        function init() {
+            spawn();
+            gameClock = setInterval(gameLoop, 1000);
+            spawnClock = setInterval(spawn, 5000); // 난이도 하향: 업무 생성 주기 증가
+        }
+
+        init();
+    </script>
+</body>
+</html>
