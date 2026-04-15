@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>호서대 캠퍼스 커플 탐험대</title>
+    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+    <style>
+        :root {
+            --primary: #00305b; /* 호서대 메인 컬러 */
+            --primary-light: #004b8d;
+            --accent: #ff7b00;
+            --bg-gradient: linear-gradient(135deg, #e0eafc 0%, #cfdef3 100%);
+            --card-bg: rgba(255, 255, 255, 0.95);
+            --text-dark: #2d3436;
+            --text-gray: #636e72;
+            --success: #00b894;
+            --error: #d63031;
+        }
+
+        body {
+            font-family: 'Pretendard', sans-serif;
+            background: var(--bg-gradient);
+            color: var(--text-dark);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* 📱 메인 앱 컨테이너 (글래스모피즘 & 부드러운 쉐도우) */
+        #game-container {
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 24px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.5);
+            width: 88%;
+            max-width: 400px;
+            padding: 35px 25px;
+            text-align: center;
+            position: relative;
+            transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        /* 🎓 헤더 디자인 */
+        header {
+            margin-bottom: 25px;
+        }
+
+        header h1 {
+            color: var(--primary);
+            font-size: 22px;
+            font-weight: 800;
+            margin: 0;
+            letter-spacing: -0.5px;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 20px;
+            background: rgba(0, 48, 91, 0.05);
+            border-radius: 12px;
+        }
+
+        /* 📊 프로그래스 바 (부드러운 곡선과 애니메이션) */
+        #progress-container {
+            width: 100%;
+            height: 8px;
+            background-color: #dfe6e9;
+            border-radius: 4px;
+            margin-bottom: 30px;
+            overflow: hidden;
+        }
+
+        #progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), #ffaa00);
+            width: 0%;
+            border-radius: 4px;
+            transition: width 0.6s cubic-bezier(0.25, 0.8, 0.25, 1);
+            box-shadow: 0 0 10px rgba(255, 123, 0, 0.4);
+        }
+
+        /* 🏷️ 스테이지 뱃지 */
+        .stage-badge {
+            display: inline-block;
+            background: var(--primary);
+            color: white;
+            padding: 8px 18px;
+            border-radius: 30px;
+            font-size: 14px;
+            font-weight: 800;
+            margin-bottom: 20px;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 10px rgba(0, 48, 91, 0.2);
+        }
+
+        /* 📝 미션 카드 (입체감 있는 디자인) */
+        .mission-box {
+            background-color: #ffffff;
+            border-radius: 16px;
+            padding: 25px 20px;
+            margin-bottom: 25px;
+            text-align: left;
+            border: 1px solid #edf2f7;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+            transition: opacity 0.3s ease;
+        }
+
+        .location-label {
+            font-size: 13px;
+            color: var(--accent);
+            font-weight: 700;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .destination {
+            font-size: 19px;
+            font-weight: 800;
+            color: var(--text-dark);
+            margin-bottom: 15px;
+            line-height: 1.4;
+        }
+
+        .observation {
+            font-size: 15px;
+            line-height: 1.6;
+            color: var(--text-gray);
+            background: #f8fafc;
+            padding: 15px;
+            border-radius: 10px;
+        }
+
+        /* ⌨️ 입력 폼 (트렌디한 포커스 효과) */
+        input[type="text"] {
+            width: 100%;
+            padding: 18px;
+            border: 2px solid #e2e8f0;
+            background-color: #f8fafc;
+            border-radius: 14px;
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            box-sizing: border-box;
+            text-align: center;
+            transition: all 0.3s ease;
+            color: var(--text-dark);
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: var(--primary);
+            background-color: #ffffff;
+            box-shadow: 0 0 0 4px rgba(0, 48, 91, 0.1);
+        }
+
+        input[type="text"]::placeholder {
+            color: #a0aec0;
+            font-weight: 400;
+        }
+
+        /* 🔘 버튼 그룹 (그라데이션 및 호버 효과) */
+        .btn-group {
+            display: flex;
+            gap: 12px;
+        }
+
+        button {
+            border: none;
+            padding: 16px;
+            border-radius: 14px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            flex: 1;
+        }
+
+        button:active { transform: scale(0.97); }
+
+        .btn-submit {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+            color: white;
+            flex: 1.5;
+            box-shadow: 0 4px 15px rgba(0, 48, 91, 0.3);
+        }
+
+        .btn-hint {
+            background-color: #edf2f7;
+            color: var(--text-gray);
+        }
+
+        /* 💬 메시지 애니메이션 */
+        #message {
+            margin-top: 15px;
+            font-size: 14px;
+            font-weight: 700;
+            min-height: 20px;
+            padding: 10px;
+            border-radius: 8px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .show-message { opacity: 1 !important; }
+        .success { color: var(--success); background: rgba(0, 184, 148, 0.1); }
+        .error { color: var(--error); background: rgba(214, 48, 49, 0.1); }
+        .hint { color: var(--accent); background: rgba(255, 123, 0, 0.1); }
+
+        .hidden { display: none; }
+
+        /* 🎉 엔딩 화면 (고급스러운 카드 형태) */
+        #clear-screen {
+            text-align: center;
+            padding: 20px 0 10px 0;
+        }
+
+        .ending-emoji {
+            font-size: 70px;
+            margin-bottom: 20px;
+            display: block;
+            animation: bounce 2s infinite;
+        }
+
+        .ending-title {
+            color: var(--primary);
+            font-size: 24px;
+            font-weight: 800;
+            margin-bottom: 20px;
+        }
+
+        .ending-body {
+            font-size: 15px;
+            line-height: 1.7;
+            color: var(--text-gray);
+            margin-bottom: 30px;
+            background: #f8fafc;
+            padding: 25px;
+            border-radius: 16px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .ending-photo-tip {
+            font-size: 14px;
+            color: var(--accent);
+            font-weight: 700;
+            margin-bottom: 30px;
+            background: rgba(255, 123, 0, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+        }
+
+        .btn-restart {
+            background: var(--text-gray);
+            color: white;
+            width: 100%;
+        }
+
+        /* 🎬 애니메이션 모음 */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-6px); }
+            40%, 80% { transform: translateX(6px); }
+        }
+        .shake { animation: shake 0.4s ease-in-out; }
+
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-20px); }
+            60% { transform: translateY(-10px); }
+        }
+
+        /* 페이드 인 효과 */
+        .fade-in { animation: fadeIn 0.5s forwards; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <header>
+        <h1>🎓 CAMPUS EXPLORER</h1>
+    </header>
+    
+    <div id="progress-container">
+        <div id="progress-bar"></div>
+    </div>
+
+    <div id="game-content" class="fade-in">
+        <div class="stage-badge" id="stage-badge">STAGE 1 / 6</div>
+        
+        <div class="mission-box" id="mission-box">
+            <div class="location-label">📍 현재 탐험 목표</div>
+            <div id="destination" class="destination">로딩 중...</div>
+            <div id="observation" class="observation">임무를 불러오는 중입니다...</div>
+        </div>
+        
+        <input type="text" id="answer-input" placeholder="정답을 입력하세요" autocomplete="off" inputmode="text">
+        
+        <div class="btn-group">
+            <button class="btn-hint" onclick="showHint()">💡 힌트</button>
+            <button class="btn-submit" onclick="checkAnswer()">정답 확인</button>
+        </div>
+        <div id="message"></div>
+    </div>
+
+    <div id="clear-screen" class="hidden">
+        <span class="ending-emoji">💖</span>
+        <h2 class="ending-title">탐험 성공! 축하합니다!</h2>
+        <div class="ending-body">
+            두 분의 완벽한 호흡으로 호서대 캠퍼스의 모든 수수께끼를 풀어냈습니다.<br><br>
+            함께 걷고, 고민하고, 대화하며 서로에 대해 조금 더 알게 된 시간이었기를 바랍니다. 오늘의 이 멋진 추억이 두 분의 앞날에 더 큰 즐거움의 시작이 되길 응원합니다!
+        </div>
+        <div class="ending-photo-tip">📸 마지막 수수께끼 장소 앞에서 함께 기념 셀카를 찍어 인증해주시면 소정의 선물을 증정해드립니다!<br><span style="font-size: 12px; font-weight: normal; color: #718096;">(셀카와 이 성공 화면을 함께 제출)</span></div>
+        <button class="btn-restart" onclick="location.reload()">처음부터 다시하기</button>
+    </div>
+</div>
+
+<script>
+    const stages = [
+        {
+            destination: "1. 강석규 교육관",
+            observation: "탐험의 시작입니다! 강석규 교육관 앞 설치된 강석규 동상의 한자 위 쓰여진 글자를 작성해주세요 (띄어쓰기x)",
+            answer: "호서학원설립자", 
+            hint: "동상의 글씨를 처음부터 끝까지 천천히 읽어보세요."
+        },
+        {
+            destination: "2. 제2공학관 4층 로비",
+            observation: "공학관 내부로 들어갑니다. 컴퓨터공학관 학과사무실 호수는 몇 호인가요? (예:000호)",
+            answer: "421호", 
+            hint: "앞의 호수만 정확히 작성해주세요(-1, -2 작성x)"
+        },
+        {
+            destination: "3. 학술정보관(도서관) 정문",
+            observation: "도서관의 내부로 들어가세요. 데스크로 이동해 직원 분에게 방탈출 키워드 힌트를 제공받고 해당 답을 입력하세요! (예: 0층)",
+            answer: "2층", 
+            hint: "힌트는 엘리베이터에 쓰여져있는 각 층별 안내를 확인하세요!"
+        },
+        {
+            destination: "4. 학생회관 식당 입구",
+            observation: "학생회관으로 이동해 식당 입구로 가세요. 입구에 배치된 키오스크의 갯수는 몇 개 입니까?",
+            answer: "2", 
+            hint: "입구에 위치한 키오스크의 갯수만 입력해주세요!(숫자만 입력)"
+        },
+        {
+            destination: "5. 세출호",
+            observation: "세출호에 위치한 정자의 갯수는 몇 개 입니까?",
+            answer: "3", 
+            hint: "지붕을 가지고 있는 정자의 갯수만 세어주세요!"
+        },
+        {
+            destination: "6. 정문",
+            observation: "정문에 위치한 '아이러브 호서' 옆에 위치해있는 나무의 이름은 무엇인가요?",
+            answer: "벚꽃나무", 
+            hint: "나무에 걸려있는 힌트를 찾아보세요!"
+        }
+    ];
+
+    let currentStage = 0;
+    const totalStages = stages.length;
+
+    function updateUI() {
+        if (currentStage < totalStages) {
+            // 미션 박스 애니메이션 리셋
+            const missionBox = document.getElementById('mission-box');
+            missionBox.classList.remove('fade-in');
+            void missionBox.offsetWidth; // DOM 리플로우 강제 트리거
+            missionBox.classList.add('fade-in');
+
+            const progressPercent = (currentStage / totalStages) * 100;
+            document.getElementById('progress-bar').style.width = `${progressPercent}%`;
+            
+            document.getElementById('stage-badge').innerText = `STAGE ${currentStage + 1} / ${totalStages}`;
+            document.getElementById('destination').innerText = stages[currentStage].destination;
+            document.getElementById('observation').innerHTML = stages[currentStage].observation;
+            
+            const inputEl = document.getElementById('answer-input');
+            inputEl.value = "";
+            inputEl.focus();
+            hideMessage(); 
+        } else {
+            document.getElementById('progress-bar').style.width = "100%";
+            document.getElementById('game-content').style.display = 'none';
+            const clearScreen = document.getElementById('clear-screen');
+            clearScreen.style.display = 'block';
+            clearScreen.classList.add('fade-in');
+        }
+    }
+
+    function showMessage(text, type) {
+        const messageEl = document.getElementById('message');
+        messageEl.innerText = text;
+        messageEl.className = `show-message ${type}`;
+    }
+
+    function hideMessage() {
+        const messageEl = document.getElementById('message');
+        messageEl.className = "";
+        messageEl.innerText = "";
+    }
+
+    function checkAnswer() {
+        const userInput = document.getElementById('answer-input').value.trim().toLowerCase();
+        const correctAnswer = stages[currentStage].answer.toLowerCase();
+        const inputEl = document.getElementById('answer-input');
+
+        if (userInput === "") {
+            showMessage("정답을 입력해주세요.", "error");
+            return;
+        }
+
+        if (userInput === correctAnswer) {
+            showMessage("🎉 정답입니다! 다음 장소로 이동합니다.", "success");
+            inputEl.style.borderColor = "var(--success)";
+            inputEl.style.backgroundColor = "#e6fcf5";
+            
+            setTimeout(() => {
+                inputEl.style.borderColor = "#e2e8f0";
+                inputEl.style.backgroundColor = "#f8fafc";
+                currentStage++;
+                updateUI();
+            }, 1200); 
+        } else {
+            showMessage("❌ 암호가 일치하지 않습니다.", "error");
+            inputEl.style.borderColor = "var(--error)";
+            inputEl.style.backgroundColor = "#fff5f5";
+            inputEl.classList.add('shake');
+            setTimeout(() => {
+                inputEl.classList.remove('shake');
+            }, 400);
+        }
+    }
+
+    function showHint() {
+        showMessage(`💡 ${stages[currentStage].hint}`, "hint");
+    }
+
+    document.getElementById('answer-input').addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') {
+            checkAnswer();
+        }
+    });
+
+    // 시작 시 첫 화면 로드
+    updateUI();
+</script>
+
+</body>
+</html>
