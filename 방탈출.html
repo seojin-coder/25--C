@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>호서대 아산캠퍼스 야외 방탈출</title>
+    <style>
+        body {
+            font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
+            background-color: #1a1a1a; /* 야외에서 화면이 잘 보이도록 어두운 배경 */
+            color: #f0f0f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+        #game-container {
+            background-color: #2d2d2d;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            padding: 25px;
+            max-width: 400px;
+            width: 85%;
+            text-align: center;
+            border: 1px solid #444;
+        }
+        h1 {
+            color: #4CAF50; /* 탐험 느낌의 그린 */
+            font-size: 20px;
+            margin-bottom: 20px;
+            letter-spacing: 2px;
+        }
+        .stage-badge {
+            display: inline-block;
+            background-color: #ff9800;
+            color: #fff;
+            padding: 6px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+        .mission-box {
+            background-color: #3d3d3d;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border-left: 5px solid #4CAF50;
+            text-align: left;
+        }
+        .location-title {
+            font-size: 14px;
+            color: #aaa;
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+        }
+        .location-title::before {
+            content: '📍 목표 장소: ';
+            font-weight: bold;
+            color: #ff9800;
+        }
+        .destination {
+            font-size: 18px;
+            font-weight: bold;
+            color: #fff;
+            margin-bottom: 10px;
+        }
+        .observation {
+            font-size: 15px;
+            line-height: 1.5;
+            color: #ddd;
+        }
+        input[type="text"] {
+            width: 80%;
+            padding: 15px;
+            border: 2px solid #555;
+            background-color: #1a1a1a;
+            color: white;
+            border-radius: 8px;
+            font-size: 16px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+        button {
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .btn-submit {
+            background-color: #4CAF50;
+            color: white;
+            flex: 2;
+        }
+        .btn-submit:active { background-color: #388E3C; }
+        
+        .btn-hint {
+            background-color: #555;
+            color: white;
+            flex: 1;
+        }
+        .btn-hint:active { background-color: #444; }
+
+        #message {
+            margin-top: 15px;
+            font-weight: bold;
+            color: #ff5252;
+            min-height: 20px;
+            font-size: 14px;
+        }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <h1>CAMPUS ESCAPE</h1>
+    <div id="stage-badge" class="stage-badge">STAGE 1</div>
+    
+    <div id="game-content">
+        <div class="mission-box">
+            <div class="location-title"></div>
+            <div id="destination" class="destination">장소 로딩 중...</div>
+            <div id="observation" class="observation">임무 로딩 중...</div>
+        </div>
+        
+        <input type="text" id="answer-input" placeholder="현장에서 찾은 암호 입력" autocomplete="off">
+        
+        <div class="btn-group">
+            <button class="btn-hint" onclick="showHint()">힌트 보기</button>
+            <button class="btn-submit" onclick="checkAnswer()">인증하기</button>
+        </div>
+        <div id="message"></div>
+    </div>
+
+    <div id="clear-screen" class="hidden">
+        <h2 style="color: #4CAF50;">🎉 미션 완료! 🎉</h2>
+        <p class="observation" style="text-align: center; margin-top:20px;">
+            모든 장소를 완벽하게 탐사했습니다.<br>당신의 뛰어난 관찰력과 행동력에 박수를 보냅니다!
+        </p>
+    </div>
+</div>
+
+<script>
+    /* 기획자 세팅 영역: 
+      아래 배열의 내용만 기획하신 실제 현장 상황에 맞게 수정하시면 됩니다.
+    */
+    const stages = [
+        {
+            destination: "학술정보관(도서관) 정문 입구",
+            observation: "학술정보관으로 이동하십시오. 정문 출입구를 등지고 섰을 때, 바로 앞에 보이는 계단의 총 개수는 몇 개인가요?",
+            answer: "15", // 예시: 실제 계단 개수로 수정 필요
+            hint: "직접 걸어 올라가며 하나씩 세어보세요. 가장 아래칸부터 포함합니다."
+        },
+        {
+            destination: "제1공학관 1층 로비",
+            observation: "공학관 내부로 진입했습니다. 1층 엘리베이터 바로 옆에 비치된 소화기를 찾으세요. 소화기에 붙어있는 '관리번호'의 마지막 3자리를 입력하십시오.",
+            answer: "042", // 예시: 실제 소화기 번호나 특정 사물 번호로 수정
+            hint: "빨간색 소화기 통 표면의 하얀색 스티커를 잘 확인하세요."
+        },
+        {
+            destination: "학생회관 앞 휴게 공간 (벤치)",
+            observation: "휴게 공간으로 이동하세요. 가장 오른쪽 구석에 있는 나무 벤치 뒷면을 조사하십시오. 누군가 검은색 마커로 남겨둔 '영단어 암호'를 찾아 입력하세요.",
+            answer: "escape", // 예시: 주최자가 미리 벤치 뒤에 테이프나 마커로 적어둔 암호
+            hint: "벤치 등받이 뒤쪽(풀숲 방향)을 몸을 숙여서 확인해야 합니다."
+        },
+        {
+            destination: "대학 본관 앞 메인 잔디밭",
+            observation: "최종 목적지입니다. 잔디밭 정중앙에 서서 본관 건물의 가장 높은 옥상을 바라보세요. 옥상에 설치된 피뢰침(가장 높이 솟은 얇은 막대)의 개수는 총 몇 개인가요?",
+            answer: "4", // 예시: 실제 개수로 수정
+            hint: "건물 전체의 지붕 라인을 왼쪽 끝부터 오른쪽 끝까지 천천히 스캔하세요."
+        }
+    ];
+
+    let currentStage = 0;
+
+    function updateUI() {
+        if (currentStage < stages.length) {
+            document.getElementById('stage-badge').innerText = `STAGE ${currentStage + 1} / ${stages.length}`;
+            document.getElementById('destination').innerText = stages[currentStage].destination;
+            document.getElementById('observation').innerHTML = stages[currentStage].observation;
+            document.getElementById('answer-input').value = "";
+            document.getElementById('message').innerText = "";
+            document.getElementById('message').style.color = "#ff5252";
+            document.getElementById('answer-input').focus();
+        } else {
+            document.getElementById('stage-badge').style.display = 'none';
+            document.getElementById('game-content').style.display = 'none';
+            document.getElementById('clear-screen').style.display = 'block';
+        }
+    }
+
+    function checkAnswer() {
+        const userInput = document.getElementById('answer-input').value.trim().toLowerCase();
+        const correctAnswer = stages[currentStage].answer.toLowerCase();
+        const messageEl = document.getElementById('message');
+
+        if (userInput === correctAnswer) {
+            messageEl.style.color = "#4CAF50";
+            messageEl.innerText = "인증 성공! 다음 장소로 이동합니다.";
+            setTimeout(() => {
+                currentStage++;
+                updateUI();
+            }, 1000); // 1초 뒤 다음 스테이지로 넘어감
+        } else {
+            messageEl.style.color = "#ff5252";
+            messageEl.innerText = "암호가 일치하지 않습니다. 현장을 다시 확인하세요.";
+            messageEl.style.transform = "translateX(-5px)";
+            setTimeout(() => messageEl.style.transform = "translateX(5px)", 50);
+            setTimeout(() => messageEl.style.transform = "translateX(0)", 100);
+        }
+    }
+
+    function showHint() {
+        const messageEl = document.getElementById('message');
+        messageEl.style.color = "#ff9800"; // 힌트 색상
+        messageEl.innerText = `💡 힌트: ${stages[currentStage].hint}`;
+    }
+
+    document.getElementById('answer-input').addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') {
+            checkAnswer();
+        }
+    });
+
+    updateUI();
+</script>
+
+</body>
+</html>
