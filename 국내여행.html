@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>우정 여행지 취향 테스트 💖✈️</title>
+    <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Jua', sans-serif;
+            /* 키치한 체커보드/도트 느낌을 낼 수도 있지만 깔끔하고 쨍한 배경 적용 */
+            background-color: #FFA6C9; 
+            color: #000;
+            text-align: center;
+            margin: 0;
+            padding: 20px 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        #app {
+            width: 100%;
+            max-width: 380px; /* 모바일 화면에 딱 맞는 사이즈 */
+            background: #FFF;
+            padding: 30px 20px;
+            border: 4px solid #000;
+            border-radius: 24px;
+            box-shadow: 6px 6px 0px #000; /* 네오 브루탈리즘 스타일의 굵고 딱 떨어지는 그림자 */
+            box-sizing: border-box;
+        }
+        h1 {
+            color: #FF3366;
+            font-size: 28px;
+            margin-bottom: 5px;
+            text-shadow: 2px 2px 0px #000; /* 키치한 텍스트 그림자 */
+            letter-spacing: 1px;
+        }
+        p.subtitle {
+            color: #555;
+            font-size: 16px;
+            margin-bottom: 25px;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 16px;
+            background-color: #FFF;
+            border: 3px solid #000;
+            border-radius: 10px;
+            margin-bottom: 25px;
+            overflow: hidden;
+            box-shadow: 2px 2px 0px #000;
+        }
+        .progress {
+            height: 100%;
+            background-color: #00E5FF; /* 형광펜 느낌의 쨍한 색상 */
+            width: 0%;
+            transition: width 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55); /* 통통 튀는 애니메이션 */
+        }
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 16px 15px;
+            margin: 12px 0;
+            border: 3px solid #000;
+            border-radius: 14px;
+            background: #E8F0FE;
+            font-family: 'Jua', sans-serif;
+            font-size: 18px;
+            color: #000;
+            cursor: pointer;
+            text-align: left;
+            box-sizing: border-box;
+            word-break: keep-all;
+            line-height: 1.3;
+            box-shadow: 4px 4px 0px #000;
+            transition: all 0.1s ease-in-out;
+        }
+        .btn:active {
+            transform: translate(4px, 4px);
+            box-shadow: 0px 0px 0px #000;
+        }
+        /* 버튼 배경색 알록달록하게 */
+        .btn:nth-child(1) { background: #E8FFC1; }
+        .btn:nth-child(2) { background: #FFE4E1; }
+        .btn:nth-child(3) { background: #E0FFFF; }
+        .btn:nth-child(4) { background: #FFFACD; }
+        .btn:nth-child(5) { background: #F3E5F5; }
+
+        .hidden {
+            display: none !important;
+        }
+        .question-title {
+            font-size: 22px;
+            font-weight: normal;
+            margin: 20px 0;
+            color: #000;
+            word-break: keep-all;
+            line-height: 1.4;
+        }
+        .result-box {
+            background-color: #FFF024; /* 쨍한 노란색 결과창 */
+            padding: 30px 20px;
+            border-radius: 15px;
+            border: 3px solid #000;
+            box-shadow: 4px 4px 0px #000;
+            margin-top: 25px;
+        }
+        .dest-name {
+            font-size: 38px;
+            color: #FF3366;
+            margin: 15px 0;
+            text-shadow: 2px 2px 0px #000;
+        }
+        .restart-btn {
+            text-align: center;
+            background: #FF3366 !important;
+            color: #FFF !important;
+            font-size: 20px;
+            margin-top: 30px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="app">
+    <div id="screen-name">
+        <h1>우정 여행 ✈️<br>취향 테스트</h1>
+        <p class="subtitle">우리의 완벽한 여행을 위하여!<br>너의 이름을 골라줘 👀</p>
+        <button class="btn" style="text-align:center;" onclick="setName('김지우')">💖 김지우</button>
+        <button class="btn" style="text-align:center;" onclick="setName('이예은')">🍀 이예은</button>
+        <button class="btn" style="text-align:center;" onclick="setName('최예은')">🍒 최예은</button>
+        <button class="btn" style="text-align:center;" onclick="setName('김여진')">🦋 김여진</button>
+        <button class="btn" style="text-align:center;" onclick="setName('황서진')">⭐ 황서진</button>
+    </div>
+
+    <div id="screen-question" class="hidden">
+        <div class="progress-bar">
+            <div class="progress" id="progress-bar-fill"></div>
+        </div>
+        <h2 style="font-size: 18px; color: #FF3366; margin: 0;">Q <span id="q-num">1</span>.</h2>
+        <div class="question-title" id="q-text">질문 내용</div>
+        <div id="choices-container"></div>
+    </div>
+
+    <div id="screen-result" class="hidden">
+        <h1>분석 완료! 🎯</h1>
+        <p style="font-size: 20px; margin-top: 15px;"><b><span id="result-name" style="color:#FF3366; font-size: 24px;"></span></b>의<br>취향을 저격할 여행지는...</p>
+        <div class="result-box">
+            <div class="dest-name" id="result-dest">여행지</div>
+            <p id="result-desc" style="line-height: 1.6; font-size: 18px;">설명</p>
+        </div>
+        <button class="btn restart-btn" onclick="location.reload()">🔄 다시 하기</button>
+    </div>
+</div>
+
+<script>
+    // 10개의 세분화된 여행지
+    const destinations = [
+        { id: 'busan', name: '부산', desc: '화려한 오션뷰와 쉴 틈 없는 핫플 투어! 텐션 높게 놀고 맛있는 거 잔뜩 먹기 좋은 최고의 도시야. 🌊🌃' },
+        { id: 'jeju', name: '제주도', desc: '렌트카 타고 해안도로 쫙 달리기! 예쁜 카페, 맛집, 오름까지 다채로운 매력이 꽉 찬 여행. 🌴🍊' },
+        { id: 'namhae', name: '남해/하동', desc: '시끄러운 소음은 안녕! 조용하고 고즈넉한 자연 속에서 우리만의 온전한 힐링을 즐길 수 있어. 🍃🍵' },
+        { id: 'gyeongju', name: '경주', desc: '뚜벅뚜벅 걷기 좋은 황리단길! 아기자기한 소품샵 구경하고 한옥 카페에서 인생샷 남기기 좋아. 📸🏺' },
+        { id: 'gangneung', name: '강릉/속초', desc: '시원한 동해 바다 보며 커피 한 잔! 중앙시장에서 맛있는 거 싹 다 포장해서 숙소 파티하기 딱이야. ☕🍤' },
+        { id: 'danyang', name: '단양', desc: '패러글라이딩이나 루지처럼 액티비티 좋아하는 친구들에게 강추! 산 공기 마시며 즐기는 익스트림 여행. 🪂🏞️' },
+        { id: 'yeosu', name: '여수', desc: '밤바다의 낭만과 낭만포차! 야경 보면서 케이블카 타고, 저녁엔 해산물 파티를 즐겨보자. 🌉🐙' },
+        { id: 'jeonju', name: '전주', desc: '먹방 여행의 끝판왕! 한복 입고 한옥마을 산책하다가 출출해지면 맛집 도장 깨기 하는 여유로운 코스. 🥢🎎' },
+        { id: 'buyeo', name: '부여/공주', desc: '요즘 뜨는 촌캉스 느낌! 복잡한 도심을 벗어나 느릿느릿 여유롭게 산책하며 진짜 휴식을 취할 수 있어. 🚲🌾' },
+        { id: 'gapyeong', name: '가평/춘천', desc: '예쁜 펜션이나 글램핑장 빌려서 우리끼리 프라이빗하게 바베큐 구워 먹고 밤새 수다 떨기 좋은 곳! 🏕️🍖' }
+    ];
+
+    // 10가지 세밀한 질문
+    const questions = [
+        {
+            text: "여행지의 전체적인 환경은 어땠으면 좋겠어?",
+            choices: [
+                { text: "왁자지껄 에너지 넘치는! 사람 구경하기 좋은 핫플 🏙️", scores: { busan: 3, jeju: 2, yeosu: 2 } },
+                { text: "시끄러운 소음은 NO! 고요하게 우리끼리 쉴 수 있는 곳 🍃", scores: { namhae: 3, buyeo: 3, gapyeong: 2 } },
+                { text: "적당한 활기와 적당한 여유가 섞인 감성적인 곳 🌙", scores: { gyeongju: 3, jeonju: 2, gangneung: 2 } }
+            ]
+        },
+        {
+            text: "여행 계획은 어떻게 짜는 게 마음 편해?",
+            choices: [
+                { text: "숙소, 동선, 예산까지 엑셀로 완벽하게 정리해야 안심되는 파 📊", scores: { jeju: 3, busan: 2, yeosu: 1 } },
+                { text: "큼직한 장소만 정해두고 그때그때 유동적으로 움직이는 파 🗺️", scores: { gyeongju: 2, gangneung: 3, jeonju: 2 } },
+                { text: "발길 닿는 대로! 계획 없이 떠나는 즉흥 여행 파 🎒", scores: { buyeo: 3, namhae: 2, gapyeong: 2 } }
+            ]
+        },
+        {
+            text: "여행지에서 가장 하고 싶은 활동은 뭐야?",
+            choices: [
+                { text: "패러글라이딩, 서핑 등 몸을 쓰는 짜릿한 액티비티 🏄‍♀️", scores: { danyang: 3, jeju: 2, yeosu: 1 } },
+                { text: "공방에서 뚝딱뚝딱 소품 조립하거나 클래스 듣기 🛠️", scores: { gyeongju: 3, jeonju: 2, namhae: 1 } },
+                { text: "예쁜 카페 투어하면서 수다 떨고 사진 오백 장 찍기 📸", scores: { gangneung: 3, busan: 2, jeju: 1 } }
+            ]
+        },
+        {
+            text: "친구들과 여행 경비 정산할 때 선호하는 방식은?",
+            choices: [
+                { text: "개인 지출은 따로! 1원 단위까지 깔끔하고 정확하게 계산 💸", scores: { namhae: 2, buyeo: 2, danyang: 1 } },
+                { text: "적당히 총액 1/N 로 나누는 게 제일 편하고 빠르지 💳", scores: { busan: 2, jeju: 2, gapyeong: 2 } },
+                { text: "이번엔 내가 카페 살게! 번갈아 가면서 기분 좋게 쏘기 ☕", scores: { gangneung: 2, gyeongju: 2, jeonju: 2 } }
+            ]
+        },
+        {
+            text: "숙소는 어떤 스타일이 좋아?",
+            choices: [
+                { text: "뷰가 생명! 깔끔하고 세련된 오션뷰 호텔이나 리조트 🏨", scores: { busan: 3, yeosu: 3, gangneung: 2 } },
+                { text: "따뜻한 감성 한 스푼, 우리끼리 쓰는 독채 펜션이나 한옥 🏡", scores: { gyeongju: 3, jeonju: 3, namhae: 2 } },
+                { text: "자연 속에서 즐기는 바베큐! 글램핑이나 캠핑 🏕️", scores: { gapyeong: 3, danyang: 2, jeju: 1 } }
+            ]
+        },
+        {
+            text: "여행에서의 식사는 어떻게 해결할까?",
+            choices: [
+                { text: "웨이팅이 있어도 꼭 먹어야 하는 유명 로컬 맛집 투어 🍽️", scores: { busan: 3, jeonju: 3, yeosu: 2 } },
+                { text: "시장에서 맛있는 거 잔뜩 포장해 와서 숙소에서 파티 🎉", scores: { gangneung: 3, gapyeong: 3, danyang: 2 } },
+                { text: "사람 적고 분위기 좋은 숨겨진 맛집이나 카페 찾기 🥗", scores: { namhae: 3, buyeo: 3, gyeongju: 1 } }
+            ]
+        },
+        {
+            text: "여행지에서 이동할 때 가장 선호하는 수단은?",
+            choices: [
+                { text: "렌트카 빌려서 짐 다 싣고 편하게 이곳저곳 이동하기 🚗", scores: { jeju: 3, namhae: 2, danyang: 2 } },
+                { text: "대중교통 타고 골목골목 뚜벅이로 걷는 낭만 🚶‍♀️", scores: { gyeongju: 3, jeonju: 3, busan: 1 } },
+                { text: "이동 최소화! 숙소 근처 안에서 모든 걸 해결하기 🛌", scores: { gapyeong: 3, gangneung: 2, buyeo: 2 } }
+            ]
+        },
+        {
+            text: "저녁을 먹고 난 후 우리의 일정은?",
+            choices: [
+                { text: "화려한 야경 보러 가거나 펍에서 텐션 올리기 🍻", scores: { busan: 3, yeosu: 3, jeju: 1 } },
+                { text: "숙소에 둘러앉아 진지하고 깊은 속마음 토크 시간 💬", scores: { gapyeong: 3, namhae: 2, buyeo: 2 } },
+                { text: "소화시킬 겸 선선한 바람 맞으며 밤 산책하기 🌙", scores: { gyeongju: 2, gangneung: 2, jeonju: 2 } }
+            ]
+        },
+        {
+            text: "여행지에서의 사진 촬영 스타일은?",
+            choices: [
+                { text: "삼각대 필수! 각 잡고 단체 사진과 인생샷 무조건 남김 📸", scores: { jeju: 3, gyeongju: 3, busan: 2 } },
+                { text: "자연스러운 파파라치 컷이나 예쁜 풍경 위주로 찍음 🌅", scores: { namhae: 2, gangneung: 2, buyeo: 2 } },
+                { text: "눈으로 담는 게 최고! 사진은 음식이나 풍경 정도만 가볍게 📱", scores: { danyang: 2, gapyeong: 2, yeosu: 1 } }
+            ]
+        },
+        {
+            text: "여행 중 예상치 못하게 비가 온다면?",
+            choices: [
+                { text: "재빠르게 플랜 B 가동! 근처 예쁜 대형 실내 공간으로 이동 🏢", scores: { busan: 3, jeju: 2, gangneung: 2 } },
+                { text: "비 오는 분위기 좋은데? 숙소에서 빗소리 들으며 파전 먹기 ☔", scores: { gapyeong: 3, namhae: 3, buyeo: 2 } },
+                { text: "비 맞으면서 놀자! 우비 입고 원래 일정대로 고고 🏃‍♀️", scores: { danyang: 3, yeosu: 1, jeonju: 1 } }
+            ]
+        }
+    ];
+
+    let currentUser = "";
+    let currentQ = 0;
+    
+    // 점수판 초기화
+    let userScores = { 
+        busan: 0, jeju: 0, namhae: 0, gyeongju: 0, gangneung: 0, 
+        danyang: 0, yeosu: 0, jeonju: 0, buyeo: 0, gapyeong: 0 
+    };
+
+    function setName(name) {
+        currentUser = name;
+        document.getElementById('screen-name').classList.add('hidden');
+        document.getElementById('screen-question').classList.remove('hidden');
+        renderQuestion();
+    }
+
+    function renderQuestion() {
+        if (currentQ < questions.length) {
+            // 진행바 업데이트
+            const progressPercent = (currentQ / questions.length) * 100;
+            document.getElementById('progress-bar-fill').style.width = progressPercent + '%';
+
+            document.getElementById('q-num').innerText = currentQ + 1;
+            document.getElementById('q-text').innerText = questions[currentQ].text;
+            
+            const container = document.getElementById('choices-container');
+            container.innerHTML = "";
+
+            questions[currentQ].choices.forEach((choice, index) => {
+                const btn = document.createElement('button');
+                btn.className = 'btn';
+                // 선택지 버튼 배경색 다르게 (CSS nth-child 활용을 위해)
+                btn.innerText = choice.text;
+                btn.onclick = () => selectAnswer(choice.scores);
+                container.appendChild(btn);
+            });
+        } else {
+            showResult();
+        }
+    }
+
+    function selectAnswer(scoresToAdd) {
+        for (let dest in scoresToAdd) {
+            userScores[dest] += scoresToAdd[dest];
+        }
+        currentQ++;
+        renderQuestion();
+    }
+
+    function showResult() {
+        document.getElementById('screen-question').classList.add('hidden');
+        document.getElementById('screen-result').classList.remove('hidden');
+        
+        document.getElementById('result-name').innerText = currentUser;
+        
+        let maxScore = -1;
+        let topDestId = '';
+        
+        for (let dest in userScores) {
+            if (userScores[dest] > maxScore) {
+                maxScore = userScores[dest];
+                topDestId = dest;
+            }
+        }
+        
+        const finalDest = destinations.find(d => d.id === topDestId);
+        document.getElementById('result-dest').innerText = finalDest.name;
+        document.getElementById('result-desc').innerText = finalDest.desc;
+    }
+</script>
+
+</body>
+</html>
