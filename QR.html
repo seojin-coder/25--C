@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CYBER ESCAPE: 코어 데이터 해독</title>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+
+        body { font-family: 'Share Tech Mono', monospace; background-color: #050505; color: #33ff33; margin: 0; padding: 20px; display: flex; justify-content: center; }
+        .terminal { width: 100%; max-width: 600px; background: #0a0a0a; padding: 20px; border: 1px solid #33ff33; box-shadow: 0 0 15px rgba(51, 255, 51, 0.2); }
+        h1 { text-align: center; font-size: 1.5em; border-bottom: 1px dashed #33ff33; padding-bottom: 10px; margin-top: 0; text-transform: uppercase; }
+        
+        .panel { background: #111; border: 1px solid #225522; padding: 15px; margin-bottom: 20px; border-radius: 4px; }
+        .panel-title { color: #88ff88; font-size: 0.9em; margin-top: 0; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px; }
+
+        .btn-group { display: flex; gap: 10px; flex-wrap: wrap; }
+        button, .file-btn { 
+            background: #050505; color: #33ff33; border: 1px solid #33ff33; padding: 8px 15px; 
+            cursor: pointer; font-family: 'Share Tech Mono'; transition: 0.2s; font-size: 0.9em; text-align: center; text-decoration: none;
+        }
+        button:hover, .file-btn:hover { background: #33ff33; color: #000; }
+        input[type="file"] { display: none; }
+
+        #reader { border: 1px solid #33ff33; display: none; margin-top: 15px; }
+
+        .log-box { height: 120px; overflow-y: auto; background: #000; border: 1px solid #33ff33; padding: 10px; font-size: 0.85em; line-height: 1.4; margin-bottom: 20px; }
+        .log-error { color: #ff3333; }
+        .log-warn { color: #ffff33; }
+        .log-success { color: #33ff33; font-weight: bold; }
+
+        .database-grid { display: grid; gap: 15px; }
+        .db-card { border: 1px solid #444; padding: 10px; background: #0a0a0a; position: relative; }
+        .db-card.completed { border-color: #33ff33; box-shadow: inset 0 0 10px rgba(51, 255, 51, 0.2); }
+        .db-title { font-weight: bold; margin-bottom: 5px; color: #aaa; }
+        .db-card.completed .db-title { color: #33ff33; }
+        .lyric-line { opacity: 0.3; margin: 3px 0; font-size: 0.9em; letter-spacing: -0.5px; }
+        .lyric-line.unlocked { opacity: 1; color: #fff; }
+        
+        .progress-bar { height: 4px; background: #222; margin-top: 10px; }
+        .progress-fill { height: 100%; background: #33ff33; width: 0%; transition: 0.3s; }
+    </style>
+</head>
+<body>
+
+<div class="terminal">
+    <h1>[ CYBER ESCAPE SYS_V2.0 ]</h1>
+    
+    <div class="panel">
+        <h3 class="panel-title">>> Input Interface</h3>
+        <div class="btn-group">
+            <button onclick="startScanner()">[ WEB CAM ]</button>
+            <button onclick="stopScanner()">[ STOP ]</button>
+            <label class="file-btn">[ UPLOAD IMAGE ]<input type="file" id="imgUpload" accept="image/*"></label>
+        </div>
+        <div id="reader"></div>
+    </div>
+
+    <div class="panel">
+        <h3 class="panel-title">>> System Log</h3>
+        <div class="log-box" id="sysLog">
+            <div>> 시스템 대기 중... 데이터를 입력하십시오.</div>
+        </div>
+    </div>
+
+    <div class="panel">
+        <h3 class="panel-title">>> Decrypted Database</h3>
+        <div class="database-grid" id="dbContainer">
+            </div>
+    </div>
+</div>
+
+<script>
+    // 1. 고도화된 해시테이블 (정확한 가사 및 순서 제어 로직 포함)
+    const clue_db = {
+        // IVE 파편 (3개를 순서대로 찾아야 함)
+        "QR_IVE_P1": { type: "FRAGMENT", id: "IVE", seq: 1, text: "Narcissistic, my god I love it" },
+        "QR_IVE_P2": { type: "FRAGMENT", id: "IVE", seq: 2, text: "우릴 비춘 밤" },
+        "QR_IVE_P3": { type: "FRAGMENT", id: "IVE", seq: 3, text: "아름다운 까만 눈빛 더 빠져 깊이\n(넌 내게로 난 네게로)\n숨 참고 love dive" },
+        
+        // BTS 파편
+        "QR_BTS_P1": { type: "FRAGMENT", id: "BTS", seq: 1, text: "내 피 땀 눈물" },
+        "QR_BTS_P2": { type: "FRAGMENT", id: "BTS", seq: 2, text: "내 마지막 춤을\n다 가져가 가" },
+
+        // LE SSERAFIM (단일 해금)
+        "QR_LSRF_P1": { type: "FRAGMENT", id: "LSRF", seq: 1, text: "Anti ti ti ti fragile fragile\nAnti ti ti ti fragile\nAnti ti ti ti fragile fragile\nAntifragile antifragile" },
+
+        // 함정 (스캔 시 패널티 에러 출력)
+        "TRAP_SYSTEM_LOCK": { type: "TRAP", text: "FATAL ERROR: 보안 시스템 작동. 10초간 입력이 차단됩니다." },
+        "TRAP_NOISE": { type: "TRAP", text: "WARNING: 알 수 없는 주파수 간섭 발생!" }
+    };
+
+    // 2. 곡 메타데이터 및 상태 관리 객체 (State Management)
+    const mission_state = {
+        "IVE": { title: "LOVE DIVE", total: 3, current: 0, unlocked: [] },
+        "BTS": { title: "피 땀 눈물", total: 2, current: 0, unlocked: [] },
+        "LSRF": { title: "ANTIFRAGILE", total: 1, current: 0, unlocked: [] }
+    };
+
+    let isLocked = false;
+    const html5QrCode = new Html5Qrcode("reader");
+
+    // UI 초기 렌더링
+    function renderDB() {
+        const container = document.getElementById("dbContainer");
+        container.innerHTML = "";
+        
+        for (const [key, data] of Object.entries(mission_state)) {
+            const percent = (data.current / data.total) * 100;
+            const isCompleted = data.current === data.total;
+            
+            let lyricsHtml = "";
+            for(let i=1; i<=data.total; i++) {
+                const isUnlocked = data.unlocked.includes(i);
+                lyricsHtml += `<div class="lyric-line ${isUnlocked ? 'unlocked' : ''}">` + 
+                              (isUnlocked ? getLyricText(key, i) : `[ ENCRYPTED DATA BLOCK 0${i} ]`) + 
+                              `</div>`;
+            }
+
+            container.innerHTML += `
+                <div class="db-card ${isCompleted ? 'completed' : ''}">
+                    <div class="db-title">[ ${key} ] ${data.title} ${isCompleted ? '(해독 완료)' : ''}</div>
+                    ${lyricsHtml}
+                    <div class="progress-bar"><div class="progress-fill" style="width: ${percent}%"></div></div>
+                </div>
+            `;
+        }
+    }
+
+    // 특정 파트의 가사를 가져오는 헬퍼 함수
+    function getLyricText(id, seq) {
+        for (const key in clue_db) {
+            if (clue_db[key].id === id && clue_db[key].seq === seq) return clue_db[key].text;
+        }
+        return "";
+    }
+
+    // 시스템 로그 출력
+    function addLog(msg, type = "normal") {
+        const logBox = document.getElementById("sysLog");
+        const time = new Date().toLocaleTimeString('en-US', {hour12: false});
+        let className = "";
+        if(type === "error") className = "log-error";
+        if(type === "warn") className = "log-warn";
+        if(type === "success") className = "log-success";
+        
+        logBox.innerHTML += `<div class="${className}">[${time}] ${msg}</div>`;
+        logBox.scrollTop = logBox.scrollHeight;
+    }
+
+    // 핵심 로직: QR 데이터 판정
+    function processQR(code) {
+        if (isLocked) {
+            addLog("시스템이 잠겨있습니다. 잠시 후 다시 시도하세요.", "error");
+            return;
+        }
+
+        const data = clue_db[code];
+
+        if (!data) {
+            addLog(`Unknown Input: ${code} - 폐기됨.`, "error");
+            return;
+        }
+
+        if (data.type === "TRAP") {
+            addLog(data.text, "warn");
+            if (code === "TRAP_SYSTEM_LOCK") {
+                isLocked = true;
+                setTimeout(() => { isLocked = false; addLog("시스템 잠금 해제됨.", "success"); }, 10000);
+            }
+            return;
+        }
+
+        if (data.type === "FRAGMENT") {
+            const state = mission_state[data.id];
+            
+            if (state.unlocked.includes(data.seq)) {
+                addLog(`${data.id} 파트 ${data.seq}: 이미 해독된 데이터입니다.`, "warn");
+                return;
+            }
+
+            // 순서 제어: 이전 시퀀스를 해독해야만 다음 시퀀스 해독 가능
+            if (data.seq > 1 && !state.unlocked.includes(data.seq - 1)) {
+                addLog(`접근 거부: ${data.id} 파트 ${data.seq - 1}을(를) 먼저 찾아야 합니다.`, "error");
+                return;
+            }
+
+            // 해독 성공
+            state.unlocked.push(data.seq);
+            state.current++;
+            addLog(`>> ${data.id} 데이터 파트 ${data.seq} 복구 성공!`, "success");
+            
+            if (state.current === state.total) {
+                addLog(`[MASTER UNLOCK] ${data.id} - ${state.title} 전체 해독 완료!`, "success");
+            }
+            
+            renderDB(); // 화면 업데이트
+        }
+    }
+
+    // 이미지 업로드 이벤트
+    document.getElementById('imgUpload').addEventListener('change', e => {
+        if (e.target.files.length == 0) return;
+        html5QrCode.scanFile(e.target.files[0], true)
+            .then(decodedText => processQR(decodedText))
+            .catch(err => addLog("손상된 이미지이거나 QR 코드가 없습니다.", "error"))
+            .finally(() => e.target.value = "");
+    });
+
+    function startScanner() {
+        document.getElementById("reader").style.display = "block";
+        addLog("카메라 모듈 가동 중...");
+        html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: {width: 250, height: 250} },
+            (decodedText) => processQR(decodedText), (error) => {}
+        ).catch(err => addLog("카메라 권한 오류 발생.", "error"));
+    }
+
+    function stopScanner() {
+        if (html5QrCode.isScanning) {
+            html5QrCode.stop().then(() => {
+                document.getElementById("reader").style.display = "none";
+                addLog("카메라 모듈 종료.");
+            });
+        }
+    }
+
+    // 초기 실행
+    renderDB();
+</script>
+
+</body>
+</html>
