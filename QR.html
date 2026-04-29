@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SECRET ROOM: 데이터 해금 시스템</title>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbit&display=swap');
+
+        body { 
+            font-family: 'Orbit', sans-serif; 
+            background-color: #0b0c10; 
+            color: #c5c6c7; 
+            margin: 0; 
+            padding: 20px; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+        }
+        .container { 
+            width: 100%; 
+            max-width: 500px; 
+            background: #1f2833; 
+            padding: 30px; 
+            border-radius: 15px; 
+            box-shadow: 0 0 25px rgba(102, 252, 241, 0.2); 
+            border: 1px solid #45a29e;
+        }
+        h1 { 
+            text-align: center; 
+            color: #66fcf1; 
+            text-shadow: 0 0 10px rgba(102, 252, 241, 0.5);
+            margin-bottom: 30px;
+        }
+        
+        .btn-group { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; justify-content: center; }
+        button, .file-upload-label { 
+            padding: 12px 20px; 
+            border: none; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            font-weight: bold; 
+            font-family: 'Orbit', sans-serif;
+            transition: all 0.3s ease; 
+            font-size: 0.9em;
+            text-align: center;
+        }
+        .btn-cam { background-color: #45a29e; color: #0b0c10; }
+        .btn-cam:hover { background-color: #66fcf1; box-shadow: 0 0 15px #66fcf1; }
+        .btn-stop { background-color: #c5c6c7; color: #0b0c10; }
+        
+        /* 파일 업로드 버튼 꾸미기 */
+        input[type="file"] { display: none; }
+        .file-upload-label { background-color: #66fcf1; color: #0b0c10; display: inline-block; }
+        .file-upload-label:hover { box-shadow: 0 0 15px #66fcf1; }
+
+        #reader { width: 100%; display: none; margin-bottom: 20px; border-radius: 10px; overflow: hidden; border: 2px solid #45a29e; }
+        
+        .message-box { 
+            padding: 15px; 
+            border-radius: 8px; 
+            text-align: center; 
+            font-weight: bold; 
+            margin-bottom: 20px; 
+            display: none; 
+            animation: fadeIn 0.5s;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .msg-fake { background-color: #2a0808; color: #ff4b4b; border: 1px solid #ff4b4b; }
+        .msg-dup { background-color: #2a2a08; color: #ffd700; border: 1px solid #ffd700; }
+        .msg-success { background-color: #0b2a1a; color: #66fcf1; border: 1px solid #66fcf1; box-shadow: 0 0 15px rgba(102, 252, 241, 0.4); }
+
+        .inventory { background: #0b0c10; padding: 20px; border-radius: 10px; border: 1px solid #45a29e; }
+        .inventory h3 { margin-top: 0; color: #45a29e; border-bottom: 1px dashed #45a29e; padding-bottom: 10px; }
+        .clue-item { background: #1f2833; padding: 15px; border-left: 4px solid #66fcf1; margin-bottom: 10px; border-radius: 4px; }
+        .clue-artist { font-size: 0.8em; color: #45a29e; margin-bottom: 5px; }
+        .clue-lyrics { font-size: 1.1em; color: #fff; line-height: 1.5; white-space: pre-wrap; text-shadow: 0 0 5px rgba(255,255,255,0.3); }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>[ SYSTEM OFFLINE ]<br>단서 해독기</h1>
+    
+    <div class="btn-group">
+        <button class="btn-cam" onclick="startScanner()">카메라 스캔</button>
+        <button class="btn-stop" onclick="stopScanner()">카메라 끄기</button>
+        <label for="qr-input-file" class="file-upload-label">QR 이미지 업로드</label>
+        <input type="file" id="qr-input-file" accept="image/*">
+    </div>
+
+    <div id="reader"></div>
+
+    <div id="statusMessage" class="message-box"></div>
+
+    <div class="inventory">
+        <h3>📂 획득한 데이터 파일</h3>
+        <div id="clueList">
+            </div>
+    </div>
+</div>
+
+<script>
+    // 1. 단서 데이터베이스 (정확한 공식 가사)
+    const valid_clues = {
+        "KEY_IVE": {
+            artist: "TRACK 01 : IVE",
+            lyrics: "Narcissistic, my god I love it\n서로를 비춘 밤"
+        },
+        "KEY_AESPA": {
+            artist: "TRACK 02 : aespa",
+            lyrics: "I'm on the Next Level\n절대적 룰을 지켜"
+        },
+        "KEY_NEWJEANS": {
+            artist: "TRACK 03 : NewJeans",
+            lyrics: "Cause I know what you like boy\nYou're my chemical hype boy"
+        }
+    };
+
+    // 2. 획득 기록 해시테이블 (Set)
+    const found_clues = new Set();
+    
+    // HTML5 QR 코드 객체 생성
+    const html5QrCode = new Html5Qrcode("reader");
+
+    // 단서 판정 로직
+    function processClue(code) {
+        const msgBox = document.getElementById("statusMessage");
+        msgBox.style.display = "block";
+        msgBox.className = "message-box";
+
+        if (!valid_clues[code]) {
+            msgBox.classList.add("msg-fake");
+            msgBox.innerHTML = `[접근 거부] <b>${code}</b><br>시스템에 등록되지 않은 페이크 코드입니다.`;
+        } else if (found_clues.has(code)) {
+            msgBox.classList.add("msg-dup");
+            msgBox.innerHTML = `[경고] <b>${valid_clues[code].artist}</b><br>이미 해독이 완료된 데이터입니다.`;
+        } else {
+            found_clues.add(code);
+            msgBox.classList.add("msg-success");
+            msgBox.innerHTML = `[해독 성공] <b>${valid_clues[code].artist}</b><br>새로운 데이터를 획득했습니다!`;
+            
+            // 인벤토리에 추가
+            const clueData = valid_clues[code];
+            const clueList = document.getElementById("clueList");
+            const clueDiv = document.createElement("div");
+            clueDiv.className = "clue-item";
+            clueDiv.innerHTML = `
+                <div class="clue-artist">${clueData.artist}</div>
+                <div class="clue-lyrics">${clueData.lyrics}</div>
+            `;
+            clueList.appendChild(clueDiv);
+        }
+    }
+
+    // [기능 1] 이미지 파일 업로드 스캔
+    document.getElementById('qr-input-file').addEventListener('change', e => {
+        if (e.target.files.length == 0) return;
+        
+        const imageFile = e.target.files[0];
+        
+        // 이미지 파일에서 QR 코드를 스캔하는 내장 함수 (scanFile)
+        html5QrCode.scanFile(imageFile, true)
+            .then(decodedText => {
+                processClue(decodedText);
+                // 입력창 초기화 (같은 파일 다시 올릴 수 있게)
+                e.target.value = ""; 
+            })
+            .catch(err => {
+                alert("QR 코드를 찾을 수 없는 이미지입니다.");
+                e.target.value = "";
+            });
+    });
+
+    // [기능 2] 웹캠 스캔 시작
+    function startScanner() {
+        document.getElementById("reader").style.display = "block";
+        html5QrCode.start(
+            { facingMode: "environment" },
+            { fps: 10, qrbox: {width: 250, height: 250} },
+            (decodedText) => {
+                processClue(decodedText);
+                // 스캔 직후 카메라를 끄고 싶다면 아래 주석을 해제하세요.
+                // stopScanner(); 
+            },
+            (error) => {}
+        ).catch(err => {
+            alert("카메라를 사용할 수 없습니다. 브라우저 권한을 확인해주세요.");
+        });
+    }
+
+    // [기능 3] 웹캠 스캔 중지
+    function stopScanner() {
+        if (html5QrCode.isScanning) {
+            html5QrCode.stop().then(() => {
+                document.getElementById("reader").style.display = "none";
+            });
+        }
+    }
+</script>
+
+</body>
+</html>
