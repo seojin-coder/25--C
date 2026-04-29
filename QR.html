@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>비밀의 방: 단서 해금 시스템</title>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <style>
+        body { font-family: 'Malgun Gothic', sans-serif; background-color: #121212; color: #e0e0e0; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        .container { width: 100%; max-width: 600px; background: #1e1e1e; padding: 25px; border-radius: 12px; box-shadow: 0 0 20px rgba(0, 255, 136, 0.2); }
+        h1 { text-align: center; color: #00ff88; text-transform: uppercase; letter-spacing: 2px; }
+        
+        .controls { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; }
+        button { padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        .btn-scan { background-color: #00ff88; color: #121212; }
+        .btn-scan:hover { background-color: #00cc6a; }
+        .btn-stop { background-color: #ff3366; color: white; }
+        
+        #reader { width: 100%; border: 2px solid #333; display: none; margin-bottom: 20px; border-radius: 8px; overflow: hidden; }
+        
+        .input-box { background: #2a2a2a; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; gap: 10px; }
+        .input-box input { flex: 1; padding: 10px; border: 1px solid #444; background: #121212; color: white; border-radius: 5px; }
+        
+        .message-box { padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; margin-bottom: 20px; display: none; }
+        .msg-fake { background-color: #3a1c1c; color: #ff6b6b; border: 1px solid #ff3366; }
+        .msg-dup { background-color: #33331a; color: #e5e54c; border: 1px solid #cccc00; }
+        .msg-success { background-color: #113322; color: #00ff88; border: 1px solid #00ff88; }
+
+        .inventory { background: #2a2a2a; padding: 15px; border-radius: 8px; }
+        .inventory h3 { margin-top: 0; color: #aaa; border-bottom: 1px solid #444; padding-bottom: 10px; }
+        .clue-item { background: #121212; padding: 15px; border-left: 4px solid #00ff88; margin-bottom: 10px; border-radius: 4px; }
+        .clue-artist { font-size: 0.8em; color: #888; margin-bottom: 5px; text-transform: uppercase; }
+        .clue-lyrics { font-size: 1.1em; color: #fff; line-height: 1.4; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Room Escape System</h1>
+    
+    <div class="controls">
+        <button class="btn-scan" onclick="startScanner()">스캐너 가동</button>
+        <button class="btn-stop" onclick="stopScanner()">스캐너 중지</button>
+    </div>
+
+    <div id="reader"></div>
+
+    <div class="input-box">
+        <input type="text" id="manualCode" placeholder="수동 코드 입력 (예: KEY_IVE)">
+        <button class="btn-scan" onclick="checkCode()">해독</button>
+    </div>
+
+    <div id="statusMessage" class="message-box"></div>
+
+    <div class="inventory">
+        <h3>획득한 단서 (가사 조각)</h3>
+        <div id="clueList">
+            </div>
+    </div>
+</div>
+
+<script>
+    // 1. 진짜 단서 데이터베이스 (해시테이블 - 객체 활용)
+    // 영문, 한글 등 공식 음원 사이트와 100% 동일한 가사로 엄격하게 구성됨
+    const valid_clues = {
+        "KEY_IVE": {
+            artist: "IVE - LOVE DIVE",
+            lyrics: "Narcissistic, my god I love it\n서로를 비춘 밤"
+        },
+        "KEY_AESPA": {
+            artist: "aespa - Next Level",
+            lyrics: "I'm on the Next Level\n절대적 룰을 지켜"
+        },
+        "KEY_NEWJEANS": {
+            artist: "NewJeans - Hype Boy",
+            lyrics: "Cause I know what you like boy\nYou're my chemical hype boy"
+        }
+    };
+
+    // 2. 이미 찾은 단서를 기록하는 해시테이블 (Set 활용)
+    const found_clues = new Set();
+    
+    let html5QrcodeScanner;
+
+    // 코드 검증 및 처리 로직
+    function processClue(code) {
+        const msgBox = document.getElementById("statusMessage");
+        msgBox.style.display = "block";
+        msgBox.className = "message-box";
+
+        // 판정 로직
+        if (!valid_clues[code]) {
+            // 해시테이블에 없는 키 -> 가짜 단서 (Fake)
+            msgBox.classList.add("msg-fake");
+            msgBox.textContent = "❌ 페이크 단서입니다. 아무런 반응이 없습니다.";
+        } else if (found_clues.has(code)) {
+            // 이미 Set에 존재하는 키 -> 중복
+            msgBox.classList.add("msg-dup");
+            msgBox.textContent = "⚠️ 이미 해독한 단서입니다.";
+        } else {
+            // 새로운 진짜 단서 해금
+            found_clues.add(code);
+            msgBox.classList.add("msg-success");
+            msgBox.textContent = "🔓 새로운 단서를 해금했습니다!";
+            
+            // 인벤토리에 가사 추가
+            const clueData = valid_clues[code];
+            const clueList = document.getElementById("clueList");
+            const clueDiv = document.createElement("div");
+            clueDiv.className = "clue-item";
+            clueDiv.innerHTML = `
+                <div class="clue-artist">${clueData.artist}</div>
+                <div class="clue-lyrics">${clueData.lyrics}</div>
+            `;
+            clueList.appendChild(clueDiv);
+        }
+    }
+
+    function checkCode() {
+        const input = document.getElementById("manualCode");
+        const code = input.value.trim();
+        if(code) {
+            processClue(code);
+            input.value = "";
+        }
+    }
+
+    function startScanner() {
+        document.getElementById("reader").style.display = "block";
+        if(!html5QrcodeScanner) {
+            html5QrcodeScanner = new Html5Qrcode("reader");
+        }
+        html5QrcodeScanner.start(
+            { facingMode: "environment" },
+            { fps: 10, qrbox: {width: 250, height: 250} },
+            (decodedText) => {
+                processClue(decodedText);
+            },
+            (error) => {}
+        ).catch(err => {
+            alert("카메라 권한이 필요합니다.");
+        });
+    }
+
+    function stopScanner() {
+        if(html5QrcodeScanner) {
+            html5QrcodeScanner.stop().then(() => {
+                document.getElementById("reader").style.display = "none";
+            });
+        }
+    }
+
+    // 엔터키 지원
+    document.getElementById("manualCode").addEventListener("keypress", function(e) {
+        if (e.key === "Enter") checkCode();
+    });
+</script>
+
+</body>
+</html>
