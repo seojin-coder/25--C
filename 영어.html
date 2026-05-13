@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trie 단어 던전</title>
+  <link href="https://fonts.googleapis.com/css2?family=Nanum+Gothic+Coding:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-color: #0d0d0d;
+      --panel-bg: #1a1a1a;
+      --text-main: #e0e0e0;
+      --text-muted: #888888;
+      --border-dark: #333333;
+      --accent-red: #c0392b;
+      --accent-gold: #f39c12;
+      --accent-green: #27ae60;
+      --glow-red: 0 0 10px rgba(192, 57, 43, 0.7);
+    }
+
+    body {
+      font-family: 'Nanum Gothic Coding', monospace;
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+    }
+
+    .container {
+      background: var(--panel-bg);
+      width: 100%;
+      max-width: 480px;
+      padding: 30px;
+      border: 2px solid var(--border-dark);
+      border-radius: 8px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.9);
+      position: relative;
+    }
+
+    h1, h2 {
+      text-align: center;
+      margin-top: 0;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    .title {
+      font-size: 28px;
+      color: var(--accent-red);
+      text-shadow: var(--glow-red);
+      border-bottom: 2px solid var(--border-dark);
+      padding-bottom: 15px;
+      margin-bottom: 25px;
+    }
+
+    /* --- 1. 지도(MAP) 화면 --- */
+    #mapView { text-align: center; }
+
+    .stage-list {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      margin-top: 20px;
+    }
+
+    .stage-btn {
+      background: #2a2a2a;
+      color: var(--text-main);
+      border: 1px solid #444;
+      padding: 20px;
+      font-size: 20px;
+      font-family: 'Nanum Gothic Coding', monospace;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: all 0.2s;
+      position: relative;
+    }
+
+    .stage-btn:hover:not(.locked) {
+      background: #3a3a3a;
+      border-color: var(--accent-gold);
+      box-shadow: 0 0 10px rgba(243, 156, 18, 0.3);
+    }
+
+    .stage-btn.locked {
+      background: #111;
+      color: #555;
+      cursor: not-allowed;
+      border-color: #222;
+    }
+
+    .stage-btn.locked::after {
+      content: '🔒';
+      position: absolute;
+      right: 20px;
+    }
+
+    /* --- 2. 게임 화면 --- */
+    #gameView { display: none; }
+
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      font-size: 16px;
+    }
+
+    .back-btn {
+      background: transparent;
+      color: var(--text-muted);
+      border: 1px solid var(--text-muted);
+      padding: 5px 10px;
+      cursor: pointer;
+      border-radius: 3px;
+      font-family: inherit;
+    }
+    .back-btn:hover { color: white; border-color: white; }
+
+    .info-panel {
+      background: #111;
+      border: 1px solid var(--border-dark);
+      padding: 15px;
+      text-align: center;
+      margin-bottom: 20px;
+      border-radius: 4px;
+    }
+
+    .info-panel span { color: var(--accent-gold); font-weight: bold; }
+
+    .timer-container {
+      width: 100%; height: 10px; background: #222;
+      border: 1px solid #444; margin-bottom: 20px;
+      display: none;
+    }
+    .timer-bar { height: 100%; width: 100%; background: var(--accent-red); transition: width 0.1s linear; }
+
+    .word-display {
+      text-align: center;
+      font-size: 45px;
+      color: #fff;
+      margin: 30px 0;
+      letter-spacing: 5px;
+      text-transform: uppercase;
+      text-shadow: 0 0 15px rgba(255,255,255,0.2);
+    }
+
+    .input-wrapper { position: relative; }
+
+    input[type="text"] {
+      width: 100%; padding: 15px; font-size: 20px;
+      background: #000; color: #0f0; /* 해커/던전 터미널 느낌 */
+      border: 1px solid var(--border-dark);
+      font-family: 'Nanum Gothic Coding', monospace;
+      outline: none; box-sizing: border-box; text-transform: lowercase;
+    }
+    input[type="text"]:focus { border-color: var(--accent-green); }
+    input:disabled { background: #111; color: #555; }
+
+    .autocomplete-list {
+      position: absolute; top: 100%; left: 0; right: 0;
+      background: #111; border: 1px solid var(--border-dark);
+      border-top: none; z-index: 100; max-height: 150px; overflow-y: auto; display: none;
+    }
+    .autocomplete-item {
+      padding: 12px 15px; border-bottom: 1px solid #222; cursor: pointer; color: #aaa;
+    }
+    .autocomplete-item strong { color: var(--accent-green); }
+    .autocomplete-item:hover { background: #222; color: #fff; }
+
+    #msgBox { text-align: center; height: 20px; margin-top: 15px; font-weight: bold; }
+
+    /* --- 모달 (결과창) --- */
+    .modal-overlay {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.85); display: flex; justify-content: center;
+      align-items: center; z-index: 200; display: none;
+    }
+    .modal-content {
+      background: #1a1a1a; padding: 30px; border: 1px solid var(--accent-red);
+      text-align: center; box-shadow: var(--glow-red); border-radius: 4px; width: 80%;
+    }
+    .modal-content h2 { color: var(--accent-gold); margin-bottom: 10px; }
+    .modal-btn {
+      background: var(--accent-red); color: #fff; border: none;
+      padding: 10px 20px; font-size: 18px; cursor: pointer;
+      font-family: inherit; margin-top: 20px; border-radius: 2px;
+    }
+    .modal-btn:hover { background: #a93226; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div id="mapView">
+    <h1 class="title">💀 깊은 단어의 던전</h1>
+    <p style="color: var(--text-muted);">층을 내려갈수록 마물이 강해집니다.</p>
+    <div class="stage-list" id="stageList"></div>
+  </div>
+
+  <div id="gameView">
+    <div class="top-bar">
+      <button class="back-btn" onclick="goBack()">◀ 후퇴</button>
+      <div id="stageTitle" style="color: var(--accent-red); font-weight: bold;">지하 1층</div>
+      <div>Score: <span id="scoreDisplay" style="color: var(--accent-gold);">0</span></div>
+    </div>
+
+    <div class="info-panel">
+      <div id="goalText">목표: 3단어 연결</div>
+      <div style="margin-top: 5px; font-size: 14px; color: var(--text-muted);">
+        진행도: <span id="turnDisplay">0</span> / <span id="maxTurnDisplay">3</span>
+      </div>
+    </div>
+
+    <div class="timer-container" id="timerBox">
+      <div class="timer-bar" id="timerBar"></div>
+    </div>
+
+    <div class="word-display" id="wordDisp">START</div>
+
+    <div class="input-wrapper">
+      <input type="text" id="wordInput" placeholder="> 주문(단어) 입력..." autocomplete="off">
+      <div id="autoList" class="autocomplete-list"></div>
+    </div>
+
+    <div id="msgBox"></div>
+  </div>
+
+  <div class="modal-overlay" id="modal">
+    <div class="modal-content">
+      <h2 id="modalTitle">승리!</h2>
+      <p id="modalDesc">다음 층으로 가는 문이 열렸다.</p>
+      <button class="modal-btn" onclick="closeModal()">계속 진행</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // 1. 단어 고갈(소프트락) 방지를 위해 사전을 대폭 확장
+  const dictionary = [
+    // a
+    "apple", "app", "application", "array", "algorithm", "ant", "art", "area", "actor", "animal", "action", "acid", "alarm", "angle", "army",
+    // b
+    "banana", "band", "bandwidth", "byte", "bug", "blue", "black", "blood", "bone", "book", "brain", "bread", "bridge", "brother", "building",
+    // c
+    "cat", "car", "care", "cherry", "code", "cpu", "cloud", "camera", "camp", "card", "castle", "chain", "chair", "circle", "city", "class", "color",
+    // d
+    "data", "deep", "door", "database", "debug", "dance", "dark", "day", "dead", "death", "desk", "dog", "dream", "dress", "drop", "dust",
+    // e (끝말잇기에서 가장 중요한 알파벳)
+    "edge", "error", "earth", "eagle", "ear", "eat", "egg", "elephant", "end", "energy", "engine", "eraser", "eye", "effect", "effort", "event", "example",
+    // f
+    "fire", "function", "file", "folder", "face", "fact", "fall", "family", "farm", "father", "fear", "finger", "fish", "flower", "food", "force",
+    // g
+    "game", "grape", "graph", "galaxy", "garden", "gas", "gate", "girl", "glass", "gold", "grass", "group", "gun",
+    // h
+    "home", "html", "human", "hero", "hair", "half", "hand", "head", "heart", "heat", "history", "hole", "horse", "hospital", "house",
+    // i, j, k
+    "ice", "image", "internet", "island", "idea", "industry", "iron", "java", "jump", "juice", "job", "join", "joy", "king", "keyboard", "key", "koala", "knee", "knife",
+    // l
+    "leaf", "list", "loop", "lion", "lake", "land", "language", "law", "leg", "level", "life", "light", "line", "love",
+    // m, n
+    "mango", "memory", "mouse", "moon", "machine", "man", "map", "market", "meat", "metal", "mind", "money", "month", "morning", "mother", "mountain", "music",
+    "node", "network", "night", "note", "name", "nature", "neck", "need", "net", "news", "nose", "number",
+    // o, p, q
+    "ocean", "object", "orange", "owl", "oil", "order", "page", "pain", "paint", "paper", "part", "party", "peace", "person", "picture", "piece", "place", "plant", "play", "point", "power", "problem", "program", "python", "pixel", "pizza", "queen", "queue", "query", "quiz", "question",
+    // r, s
+    "root", "ram", "run", "rabbit", "robot", "red", "rain", "rat", "reason", "record", "ring", "river", "road", "rock", "room", "rule",
+    "stack", "search", "sort", "system", "star", "salt", "sand", "school", "science", "sea", "season", "seat", "secret", "seed", "shape", "ship", "shoe", "shop", "side", "sign", "silver", "sister", "size", "skin", "sky", "smile", "snow", "society", "son", "song", "sound", "space", "spring", "square", "step", "stone", "story", "street", "student", "sugar", "summer", "sun", "surface", "system",
+    // t, u, v, w, x, y, z
+    "tree", "trie", "test", "tiger", "train", "table", "tail", "taste", "tax", "tea", "teacher", "team", "tent", "time", "tomato", "top", "town", "trade", "trouble", "turn", "type",
+    "user", "url", "umbrella", "uncle", "unit", "use",
+    "value", "variable", "venom", "violin", "voice",
+    "web", "word", "water", "whale", "wood", "wall", "war", "wash", "watch", "way", "weather", "week", "weight", "wind", "window", "winter", "woman", "work", "world",
+    "year", "yellow", "yoyo", "zero", "zoo", "zebra"
+  ];
+
+  class TrieNode { constructor() { this.children = {}; this.isEnd = false; } }
+  class Trie {
+    constructor() { this.root = new TrieNode(); }
+    insert(word) {
+      let curr = this.root;
+      for(let c of word) {
+        if(!curr.children[c]) curr.children[c] = new TrieNode();
+        curr = curr.children[c];
+      }
+      curr.isEnd = true;
+    }
+    autocomplete(prefix) {
+      let curr = this.root;
+      for(let c of prefix) {
+        if(!curr.children[c]) return [];
+        curr = curr.children[c];
+      }
+      let res = [];
+      this.collect(curr, prefix, res);
+      return res;
+    }
+    collect(node, path, res) {
+      if(node.isEnd) res.push(path);
+      for(let c in node.children) this.collect(node.children[c], path + c, res);
+    }
+  }
+
+  const trie = new Trie();
+  dictionary.forEach(w => trie.insert(w));
+
+  // 2. 스테이지 데이터 (던전 컨셉)
+  const stages = [
+    { id: 1, name: "지하 1층: 부패한 무덤", goal: 3, minLen: 0, time: 0 },
+    { id: 2, name: "지하 2층: 미노타우로스의 미로", goal: 5, minLen: 4, time: 0 },
+    { id: 3, name: "최하층: 심연의 드래곤", goal: 7, minLen: 0, time: 10 } // 긴장감을 위해 10초로 설정
+  ];
+
+  let unlockedStage = 1;
+  let currentStage = null;
+  let score = 0;
+  let turnCount = 0;
+  let lastWord = "";
+  let used = new Set();
+  let timerInterval = null; // 초기화 명확히
+
+  const mapView = document.getElementById('mapView');
+  const gameView = document.getElementById('gameView');
+  const stageList = document.getElementById('stageList');
+  const input = document.getElementById('wordInput');
+  const autoList = document.getElementById('autoList');
+
+  // 맵 렌더링
+  function renderMap() {
+    stageList.innerHTML = '';
+    stages.forEach(s => {
+      const btn = document.createElement('button');
+      btn.className = `stage-btn ${s.id > unlockedStage ? 'locked' : ''}`;
+      btn.innerText = s.name;
+      if(s.id <= unlockedStage) btn.onclick = () => startStage(s);
+      stageList.appendChild(btn);
+    });
+  }
+
+  // 스테이지 시작
+  function startStage(stage) {
+    currentStage = stage;
+    turnCount = 0;
+    lastWord = "";
+    used.clear();
+    score = 0;
+    
+    mapView.style.display = 'none';
+    gameView.style.display = 'block';
+    
+    document.getElementById('stageTitle').innerText = stage.name.split(':')[0];
+    document.getElementById('goalText').innerText = stage.id === 2 ? "목표: 5단어 (4글자 이상 필수)" : `목표: ${stage.goal}단어 연결`;
+    document.getElementById('wordDisp').innerText = "START";
+    document.getElementById('scoreDisplay').innerText = "0";
+    document.getElementById('turnDisplay').innerText = "0";
+    document.getElementById('maxTurnDisplay').innerText = stage.goal;
+    document.getElementById('msgBox').innerText = "";
+    
+    input.disabled = false;
+    input.value = "";
+    input.placeholder = "> 첫 주문을 입력하라...";
+    input.focus();
+    
+    // 타이머 셋업
+    if(stage.time > 0) {
+      document.getElementById('timerBox').style.display = 'block';
+      startTimer(stage.time);
+    } else {
+      document.getElementById('timerBox').style.display = 'none';
+    }
+  }
+
+  // 타이머 로직 (버그 픽스)
+  function startTimer(sec) {
+    if (timerInterval) clearInterval(timerInterval); // 기존 타이머 확실히 제거
+    
+    let left = sec;
+    const bar = document.getElementById('timerBar');
+    bar.style.width = "100%";
+    
+    timerInterval = setInterval(() => {
+      left -= 0.1;
+      bar.style.width = (left / sec * 100) + "%";
+      if(left <= 0) {
+        clearInterval(timerInterval);
+        failStage("마력이 다하여 어둠에 잠식되었다.");
+      }
+    }, 100);
+  }
+
+  // 입력창 이벤트 (자동완성)
+  input.addEventListener('input', () => {
+    let val = input.value.trim().toLowerCase();
+    autoList.innerHTML = '';
+    if(!val) { autoList.style.display='none'; return; }
+    if(lastWord && val[0] !== lastWord.slice(-1)) { autoList.style.display='none'; return; }
+
+    let sugs = trie.autocomplete(val).filter(w => !used.has(w));
+    if(sugs.length > 0) {
+      autoList.style.display = 'block';
+      sugs.slice(0, 4).forEach(s => {
+        const d = document.createElement('div');
+        d.className = 'autocomplete-item';
+        d.innerHTML = `<strong>${s.substring(0, val.length)}</strong>${s.substring(val.length)}`;
+        d.onclick = () => { input.value = s; autoList.style.display = 'none'; input.focus(); };
+        autoList.appendChild(d);
+      });
+    } else { autoList.style.display = 'none'; }
+  });
+
+  // 엔터(제출) 이벤트
+  input.onkeydown = (e) => {
+    if(e.key === 'Enter') {
+      let val = input.value.trim().toLowerCase();
+      if(!val) return;
+      
+      if(!dictionary.includes(val)) { showMsg("알 수 없는 주문이다.", "var(--accent-red)"); return; }
+      if(used.has(val)) { showMsg("이미 소모된 마력이다.", "var(--accent-red)"); return; }
+      if(lastWord && val[0] !== lastWord.slice(-1)) { showMsg("마력의 흐름이 끊겼다.", "var(--accent-red)"); return; }
+      if(val.length < currentStage.minLen) { showMsg(`주문이 너무 짧다. (${currentStage.minLen}자 이상)`, "var(--accent-red)"); return; }
+
+      // 정답 처리
+      lastWord = val;
+      used.add(val);
+      turnCount++;
+      score += val.length * 10;
+      
+      document.getElementById('wordDisp').innerText = lastWord;
+      document.getElementById('scoreDisplay').innerText = score;
+      document.getElementById('turnDisplay').innerText = turnCount;
+      
+      input.value = '';
+      input.placeholder = `> '${lastWord.slice(-1).toUpperCase()}' (으)로 이어가라`;
+      autoList.style.display = 'none';
+      showMsg("공격 적중!", "var(--accent-green)");
+
+      // 클리어 체크 (버그 픽스: 클리어 시 타이머 재시작 방지)
+      if(turnCount >= currentStage.goal) {
+        winStage();
+      } else if (currentStage.time > 0) {
+        startTimer(currentStage.time); // 클리어하지 않았을 때만 타이머 리셋
+      }
+    }
+  }
+
+  // 스테이지 클리어
+  function winStage() {
+    if (timerInterval) clearInterval(timerInterval);
+    input.disabled = true; // 추가 입력 방지
+    
+    if(currentStage.id === unlockedStage) unlockedStage++;
+    
+    document.getElementById('modalTitle').innerText = "VICTORY";
+    document.getElementById('modalTitle').style.color = "var(--accent-gold)";
+    document.getElementById('modalDesc').innerText = "해당 층의 마물을 처치했다.";
+    document.getElementById('modal').style.display = 'flex';
+  }
+
+  // 스테이지 실패
+  function failStage(msg) {
+    if (timerInterval) clearInterval(timerInterval);
+    input.disabled = true;
+    
+    document.getElementById('modalTitle').innerText = "GAME OVER";
+    document.getElementById('modalTitle').style.color = "var(--accent-red)";
+    document.getElementById('modalDesc').innerText = msg;
+    document.getElementById('modal').style.display = 'flex';
+  }
+
+  function closeModal() {
+    document.getElementById('modal').style.display = 'none';
+    goBack();
+  }
+
+  function goBack() {
+    if (timerInterval) clearInterval(timerInterval);
+    gameView.style.display = 'none';
+    mapView.style.display = 'block';
+    renderMap();
+  }
+
+  function showMsg(m, c) {
+    const d = document.getElementById('msgBox');
+    d.innerText = m; d.style.color = c;
+    setTimeout(() => d.innerText = "", 1500);
+  }
+
+  // 초기 시작
+  renderMap();
+</script>
+</body>
+</html>
