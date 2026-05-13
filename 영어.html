@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>키치 Trie 단어 던전 맵</title>
+  <link href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=Nanum+Gothic+Coding:wght@700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --main-bg: #fdfcf0; 
+      --accent-pink: #ffafcc; 
+      --accent-blue: #a2d2ff; 
+      --accent-yellow: #ffde59; 
+      --accent-green: #caffbf; 
+      --dark-text: #4a4a4a;
+      --card-bg: #ffffff;
+      --border-style: 4px solid #4a4a4a; 
+    }
+
+    body {
+      font-family: 'Gaegu', cursive;
+      background-color: var(--main-bg);
+      color: var(--dark-text);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+      overflow-x: hidden;
+    }
+
+    .container {
+      background: var(--card-bg);
+      width: 100%;
+      max-width: 480px;
+      padding: 40px 30px;
+      border: var(--border-style);
+      border-radius: 50px;
+      box-shadow: 15px 15px 0px #4a4a4a;
+      position: relative;
+    }
+
+    /* --- 1. 스테이지 선택 화면 (MAP) --- */
+    #mapView {
+      text-align: center;
+    }
+
+    .map-title {
+      font-size: 36px;
+      margin-bottom: 30px;
+      text-shadow: 2px 2px 0px var(--accent-yellow);
+    }
+
+    .stage-list {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      align-items: center;
+    }
+
+    .stage-btn {
+      width: 80%;
+      padding: 20px;
+      border: var(--border-style);
+      border-radius: 30px;
+      font-size: 24px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      position: relative;
+      font-family: 'Gaegu', cursive;
+    }
+
+    .stage-btn:hover {
+      transform: translateY(-5px);
+      box-shadow: 0px 5px 0px #4a4a4a;
+    }
+
+    .stage-btn.locked {
+      background: #eee !important;
+      color: #aaa;
+      cursor: not-allowed;
+      box-shadow: none !important;
+    }
+
+    .stage-btn.locked::after {
+      content: '🔒';
+      position: absolute;
+      right: 20px;
+    }
+
+    /* --- 2. 게임 플레이 화면 --- */
+    #gameView {
+      display: none;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .back-btn {
+      background: var(--accent-yellow);
+      border: 3px solid #4a4a4a;
+      border-radius: 15px;
+      padding: 5px 15px;
+      cursor: pointer;
+      font-size: 18px;
+      font-family: 'Gaegu';
+    }
+
+    .stage-tag {
+      background: var(--dark-text);
+      color: white;
+      padding: 5px 15px;
+      border-radius: 20px;
+      font-size: 18px;
+    }
+
+    .goal-box {
+      background: var(--accent-blue);
+      border: var(--border-style);
+      border-radius: 20px;
+      padding: 10px;
+      text-align: center;
+      font-size: 20px;
+      margin-bottom: 20px;
+      color: white;
+      text-shadow: 1px 1px 0px #4a4a4a;
+    }
+
+    .word-display-box {
+      background: #fff;
+      border: var(--border-style);
+      border-radius: 30px;
+      padding: 30px;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .current-word {
+      font-size: 55px;
+      color: var(--accent-pink);
+      text-shadow: 2px 2px 0px #4a4a4a;
+      font-family: 'Nanum Gothic Coding', monospace;
+      margin: 0;
+    }
+
+    .input-wrapper { position: relative; }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 18px;
+      font-size: 22px;
+      border: var(--border-style);
+      border-radius: 25px;
+      font-family: 'Nanum Gothic Coding', monospace;
+      outline: none;
+      box-sizing: border-box;
+    }
+
+    .autocomplete-list {
+      position: absolute;
+      top: 105%; left: 0; right: 0;
+      background: #fff; border: var(--border-style);
+      border-radius: 20px; z-index: 100;
+      max-height: 150px; overflow-y: auto; display: none;
+    }
+
+    .autocomplete-item {
+      padding: 12px 20px; border-bottom: 2px solid #eee;
+      cursor: pointer; font-size: 18px;
+    }
+    .autocomplete-item strong { color: var(--accent-pink); }
+
+    .timer-container {
+      width: 100%; height: 15px; background: #eee;
+      border: 3px solid #4a4a4a; border-radius: 10px;
+      margin-bottom: 20px; overflow: hidden; display: none;
+    }
+    .timer-bar { height: 100%; width: 100%; background: var(--accent-red); transition: width 0.1s linear; }
+
+    /* 결과 모달 */
+    .modal {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(255,255,255,0.9); border-radius: 50px;
+      display: flex; flex-direction: column; justify-content: center;
+      align-items: center; z-index: 200; display: none;
+    }
+
+    .modal h2 { font-size: 40px; color: var(--accent-pink); margin-bottom: 10px; }
+    .modal p { font-size: 24px; margin-bottom: 20px; }
+    .modal-btn {
+      background: var(--accent-yellow); border: var(--border-style);
+      padding: 15px 30px; border-radius: 20px; font-size: 22px; cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div id="mapView">
+    <h1 class="map-title">📂 단어 던전 지도</h1>
+    <div class="stage-list" id="stageList">
+      </div>
+  </div>
+
+  <div id="gameView">
+    <div class="header">
+      <button class="back-btn" onclick="goBack()">🏠 지도</button>
+      <div class="stage-tag" id="stageTitle">STAGE 1</div>
+      <div style="font-size: 20px; font-weight: bold;">점수: <span id="score">0</span></div>
+    </div>
+
+    <div class="goal-box" id="goalText">목표: 3개 단어 연결하기</div>
+
+    <div class="timer-container" id="timerBox">
+      <div class="timer-bar" id="timerBar"></div>
+    </div>
+
+    <div class="word-display-box">
+      <p class="current-word" id="wordDisp">START</p>
+    </div>
+
+    <div class="input-wrapper">
+      <input type="text" id="wordInput" placeholder="단어를 입력해!" autocomplete="off">
+      <div id="autoList" class="autocomplete-list"></div>
+    </div>
+    
+    <p id="msg" style="text-align: center; height: 20px; font-weight: bold; margin-top: 10px;"></p>
+  </div>
+
+  <div id="modal" class="modal">
+    <h2 id="modalTitle">SUCCESS!</h2>
+    <p id="modalDesc">다음 층으로 갈 수 있어!</p>
+    <button class="modal-btn" onclick="closeModal()">계속하기</button>
+  </div>
+</div>
+
+<script>
+  // 1. Trie 자료구조 (교안 원리 반영 [cite: 315-337])
+  class Node { constructor() { this.children = {}; this.isEnd = false; } }
+  class Trie {
+    constructor() { this.root = new Node(); }
+    insert(word) {
+      let curr = this.root;
+      for(let c of word) {
+        if(!curr.children[c]) curr.children[c] = new Node();
+        curr = curr.children[c];
+      }
+      curr.isEnd = true;
+    }
+    autocomplete(prefix) {
+      let curr = this.root;
+      for(let c of prefix) {
+        if(!curr.children[c]) return [];
+        curr = curr.children[c];
+      }
+      let res = [];
+      this.collect(curr, prefix, res);
+      return res;
+    }
+    collect(node, path, res) {
+      if(node.isEnd) res.push(path);
+      for(let c in node.children) this.collect(node.children[c], path + c, res);
+    }
+  }
+
+  const dictionary = ["apple", "app", "application", "banana", "band", "bandwidth", "cat", "car", "care", "cherry", "data", "deep", "door", "database", "edge", "fire", "game", "grape", "home", "ice", "java", "jump", "king", "leaf", "moon", "node", "ocean", "pizza", "queen", "root", "stack", "tree", "trie", "user", "value", "web", "year", "zebra", "lion", "tiger", "orange", "lemon", "blue", "red", "green"];
+  const trie = new Trie();
+  dictionary.forEach(w => trie.insert(w));
+
+  // 2. 스테이지 데이터
+  const stages = [
+    { id: 1, name: "1층: 슬라임 숲", goal: 3, minLen: 0, time: 0, color: "var(--accent-green)" },
+    { id: 2, name: "2층: 모래 사막", goal: 5, minLen: 4, time: 0, color: "var(--accent-yellow)" },
+    { id: 3, name: "3층: 드래곤 보스", goal: 7, minLen: 0, time: 15, color: "var(--accent-pink)" }
+  ];
+
+  let unlockedStage = 1;
+  let currentStage = null;
+  let score = 0;
+  let turnCount = 0;
+  let lastWord = "";
+  let used = new Set();
+  let timerInterval;
+
+  const mapView = document.getElementById('mapView');
+  const gameView = document.getElementById('gameView');
+  const stageList = document.getElementById('stageList');
+
+  // 지도 생성
+  function renderMap() {
+    stageList.innerHTML = '';
+    stages.forEach(s => {
+      const btn = document.createElement('button');
+      btn.className = `stage-btn ${s.id > unlockedStage ? 'locked' : ''}`;
+      btn.style.backgroundColor = s.color;
+      btn.innerText = s.name;
+      if(s.id <= unlockedStage) btn.onclick = () => startStage(s);
+      stageList.appendChild(btn);
+    });
+  }
+
+  function startStage(stage) {
+    currentStage = stage;
+    turnCount = 0;
+    lastWord = "";
+    used.clear();
+    score = 0;
+    
+    mapView.style.display = 'none';
+    gameView.style.display = 'block';
+    
+    document.getElementById('stageTitle').innerText = `STAGE ${stage.id}`;
+    document.getElementById('goalText').innerText = stage.id === 2 ? "목표: 5단어 (4글자 이상!)" : `목표: ${stage.goal}개 단어 연결하기`;
+    document.getElementById('wordDisp').innerText = "START";
+    document.getElementById('score').innerText = "0";
+    document.getElementById('msg').innerText = "";
+    
+    if(stage.time > 0) {
+      document.getElementById('timerBox').style.display = 'block';
+      startTimer(stage.time);
+    } else {
+      document.getElementById('timerBox').style.display = 'none';
+    }
+  }
+
+  function startTimer(sec) {
+    let left = sec;
+    const bar = document.getElementById('timerBar');
+    clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+      left -= 0.1;
+      bar.style.width = (left / sec * 100) + "%";
+      if(left <= 0) {
+        clearInterval(timerInterval);
+        failStage("시간 초과!");
+      }
+    }, 100);
+  }
+
+  const input = document.getElementById('wordInput');
+  const autoList = document.getElementById('autoList');
+
+  input.addEventListener('input', () => {
+    let val = input.value.trim().toLowerCase();
+    autoList.innerHTML = '';
+    if(!val) { autoList.style.display='none'; return; }
+    if(lastWord && val[0] !== lastWord.slice(-1)) { autoList.style.display='none'; return; }
+
+    let sugs = trie.autocomplete(val).filter(w => !used.has(w));
+    if(sugs.length > 0) {
+      autoList.style.display = 'block';
+      sugs.slice(0, 3).forEach(s => {
+        const d = document.createElement('div');
+        d.className = 'autocomplete-item';
+        d.innerHTML = `<strong>${s.substring(0, val.length)}</strong>${s.substring(val.length)}`;
+        d.onclick = () => { input.value = s; autoList.style.display = 'none'; input.focus(); };
+        autoList.appendChild(d);
+      });
+    } else { autoList.style.display = 'none'; }
+  });
+
+  input.onkeydown = (e) => {
+    if(e.key === 'Enter') {
+      let val = input.value.trim().toLowerCase();
+      if(!dictionary.includes(val)) { showMsg("사전에 없는 단어야!", "red"); return; }
+      if(used.has(val)) { showMsg("이미 사용했어!", "red"); return; }
+      if(lastWord && val[0] !== lastWord.slice(-1)) { showMsg("글자가 안 이어져!", "red"); return; }
+      if(val.length < currentStage.minLen) { showMsg(`${currentStage.minLen}글자 이상이어야 해!`, "red"); return; }
+
+      // 정답!
+      lastWord = val;
+      used.add(val);
+      turnCount++;
+      score += val.length * 10;
+      document.getElementById('wordDisp').innerText = lastWord.toUpperCase();
+      document.getElementById('score').innerText = score;
+      input.value = '';
+      autoList.style.display = 'none';
+      showMsg("성공! +1", "blue");
+
+      if(currentStage.time > 0) startTimer(currentStage.time); // 타이머 리셋
+
+      if(turnCount >= currentStage.goal) winStage();
+    }
+  }
+
+  function winStage() {
+    clearInterval(timerInterval);
+    if(currentStage.id === unlockedStage) unlockedStage++;
+    document.getElementById('modalTitle').innerText = "SUCCESS! 🎉";
+    document.getElementById('modalDesc').innerText = `${currentStage.name} 정복 완료!`;
+    document.getElementById('modal').style.display = 'flex';
+  }
+
+  function failStage(m) {
+    document.getElementById('modalTitle').innerText = "FAILED... 😭";
+    document.getElementById('modalDesc').innerText = m;
+    document.getElementById('modal').style.display = 'flex';
+  }
+
+  function closeModal() {
+    document.getElementById('modal').style.display = 'none';
+    goBack();
+  }
+
+  function goBack() {
+    clearInterval(timerInterval);
+    gameView.style.display = 'none';
+    mapView.style.display = 'block';
+    renderMap();
+  }
+
+  function showMsg(m, c) {
+    const d = document.getElementById('msg');
+    d.innerText = m; d.style.color = c;
+    setTimeout(() => d.innerText = "", 1500);
+  }
+
+  renderMap();
+</script>
+</body>
+</html>
